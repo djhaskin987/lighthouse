@@ -1,0 +1,10 @@
+# Haskell
+.cabal-sandbox/
+dist/
+
+# Editor save files
+\#*
+.#*
+.*#
+*~
+.*.sw[a-z]

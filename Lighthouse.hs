@@ -8,6 +8,6 @@ data Workload = Workload {
     requirements :: Map.Map String Float
 }
 
-assignWorkload :: Map.Map String Node -> [String] -> Map.Map String Node
-assignWorkload nodes j
-assignWorkload Map.empty [] = Map.empty
+#assignWorkload :: Map.Map String Node -> [String] -> Map.Map String Node
+#assignWorkload nodes j
+#assignWorkload Map.empty [] = Map.empty
