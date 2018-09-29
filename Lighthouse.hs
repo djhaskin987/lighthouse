@@ -1,13 +1,18 @@
+module Lighthouse (lightUp) where
 import qualified Data.Map as Map
 
 data Node = Node {
-    resources :: Map.Map String Float
+    nodeId :: String
+  , resources :: Map.Map String Float
 } deriving (Show)
 
 data Workload = Workload {
-    requirements :: Map.Map String Float
+    loadId :: String
+  , requirements :: Map.Map String Float
 }
 
-#assignWorkload :: Map.Map String Node -> [String] -> Map.Map String Node
-#assignWorkload nodes j
-#assignWorkload Map.empty [] = Map.empty
+lightUp :: String -> String
+lightUp s = "LIGHT " ++ s ++ " LIGHT"
+-- assignWorkload :: Map.Map String Node -> [String] -> Map.Map String Node
+-- assignWorkload nodes j
+-- assignWorkload Map.empty [] = Map.empty

@@ -1,4 +1,6 @@
 module Main where
 
+import Lighthouse
+
 main :: IO ()
-main = putStrLn "Hello, Haskell!"
+main = putStrLn (Lighthouse.lightUp "Hello, Haskell!")
