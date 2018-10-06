@@ -28,7 +28,7 @@ executable lighthouse
 
 test-suite tests
   ghc-options: -Werror
-  hs-source-dirs: tests
+  hs-source-dirs: tests,src
   default-extensions:  OverloadedStrings
   type: exitcode-stdio-1.0
   main-is: Tests.hs
