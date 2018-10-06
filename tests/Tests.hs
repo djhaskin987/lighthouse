@@ -23,6 +23,6 @@ main = hspec $
                           ("mem", 5.6)])
             [req]
         nodes = [firstNode, secondNode]
-        returned = [firstNodeModified, secondNode]
+        returned = Just [firstNodeModified, secondNode]
         req = Lighthouse.Workload "myleia"
                         (Map.fromList [("cpu", 3.8), ("mem", 2.4)])
