@@ -12,4 +12,5 @@ data Workload = Workload { loadId :: String
                          } deriving (Show, Eq)
 
 assignWorkload :: [Node] -> Workload -> Maybe [Node]
+assignWorkload [] load = Just []
 assignWorkload nodes load = Just nodes
