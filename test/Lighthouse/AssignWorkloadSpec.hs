@@ -1,10 +1,11 @@
-module Main where
+module Lighthouse.AssignWorkloadSpec (spec) where
 
-import qualified Data.Map as Map
-import Lighthouse
 import Test.Hspec
 import qualified Control.Monad as Monad
+import qualified Data.Map as Map
+import Lighthouse
 
+nearEqNode :: Node -> Node -> Bool
 nearEqNode a b =
     nodeId a == nodeId b &&
     workloads a == workloads b &&
@@ -16,14 +17,16 @@ nearEqNode a b =
       (\a b -> (a - 0.005) <= b && b <= (a + 0.005))
       (resources a)
       (resources b)
-    allResourcesClose = Map.foldr (&&) True resourcesClose
+    allResourcesClose = and resourcesClose
 
+nearEqNodeList :: [Node] -> [Node] -> Bool
 nearEqNodeList a b =
-    foldr (&&) True bmps
+    and bmps
   where
     cmps = zip a b
-    bmps = map (\(s,t) -> s `nearEqNode` t) cmps
+    bmps = map (uncurry nearEqNode) cmps
 
+nearEqAssignWorkload :: Maybe [Node] -> Maybe [Node] -> Bool
 nearEqAssignWorkload a b =
   case a of
     Nothing -> case b of
@@ -33,20 +36,14 @@ nearEqAssignWorkload a b =
                 Nothing -> False
                 Just v -> nearEqNodeList u v
 
-testPlace = hspec $
-    describe "normal place" $ do
-      it "will die" $
-        Lighthouse.place a [1,2,3,4] `shouldBe` Nothing
-      it "will find 5 and place it" $
-        Lighthouse.place a [1,2,3,4,5] `shouldBe` Just [1,2,3,4,88]
-  where
-    a 5 = Just 88
-    a x = Nothing
-
-testAssignWorkload = hspec $ do
+spec :: Spec
+spec = do
     describe "empty nodes" $
       it "is supposed to return empty list" $
           Lighthouse.assignWorkload [] req `shouldBe` Nothing
+    describe "silly case" $
+      it "is supposed to return nothing" $
+          Lighthouse.assignWorkload nodes sillyReq `shouldBe` Nothing
     describe "standard case" $
       it "will do the normal thing" $
         shouldSatisfy
@@ -67,11 +64,9 @@ testAssignWorkload = hspec $ do
       [req]
     nodes = [firstNode, secondNode]
     target = Just [firstNodeModified, secondNode]
+    sillyReq = Lighthouse.Workload
+      "bad"
+      (Map.fromList [("cpu", 8.8), ("mem", 16.4)])
     req = Lighthouse.Workload
-      "myleia"
+      "good"
       (Map.fromList [("cpu", 3.8), ("mem", 2.4)])
-
-main :: IO ()
-main = do
-    testAssignWorkload
-    testPlace
