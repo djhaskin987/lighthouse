@@ -1,4 +1,4 @@
-module Lighthouse (Node (Node), Workload (Workload), assignWorkload, place) where
+module Lighthouse (Node (Node), Workload (Workload), assignWorkload, place, nodeId, resources, workloads, loadId, requirements) where
 
 import qualified Data.Map as Map
 import qualified Control.Monad as Monad
@@ -12,9 +12,9 @@ data Workload = Workload { loadId :: String
                          , requirements :: Map.Map String Float
                          } deriving (Show, Eq)
 
--- Replace the first element of the list for which the computation `(a -> Maybe
--- a)` was successful with its result, or return Nothing if no computation
--- worked for the whole list.
+-- |Replace the first element of the list for which the computation `(a ->
+-- Maybe a)` was successful with its result, or return Nothing if no
+-- computation worked for the whole list.
 place :: (a -> Maybe a) -> [a] -> Maybe [a]
 place f [] = Nothing
 place f (x:xs) = case f x of
