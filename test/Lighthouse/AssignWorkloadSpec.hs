@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Lighthouse.AssignWorkloadSpec (spec) where
 
 import Test.Hspec

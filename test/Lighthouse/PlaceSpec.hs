@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Lighthouse.PlaceSpec (spec) where
 
 import Test.Hspec

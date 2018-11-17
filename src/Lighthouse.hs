@@ -1,16 +1,90 @@
-module Lighthouse (Node (Node), Workload (Workload), assignWorkload, place, nodeId, resources, workloads, loadId, requirements) where
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
+module Lighthouse (Node (Node), Workload (Workload), assignWorkloads, assignWorkload, place, nodeId, resources, workloads, loadId, requirements) where
 
-import qualified Data.Map as Map
+import           Data.Aeson       hiding (json)
+import           Data.Sequence((><))
+import           Data.Text        (Text, pack)
+import           GHC.Generics
 import qualified Control.Monad as Monad
+import qualified Data.Foldable as Fold
+import qualified Data.Map as Map
+import qualified Data.Sequence as Sequence
 
-data Node = Node { nodeId :: String
-                 , resources :: Map.Map String Float
+data Workload = Workload { loadId :: Text
+                         , requirements :: Map.Map Text Float
+                         } deriving (Show, Eq, Generic)
+
+data Node = Node { nodeId :: Text
+                 , resources :: Map.Map Text Float
                  , workloads :: [Workload]
-                 } deriving (Show, Eq)
+                 } deriving (Show, Eq, Generic)
 
-data Workload = Workload { loadId :: String
-                         , requirements :: Map.Map String Float
-                         } deriving (Show, Eq)
+instance ToJSON Workload
+
+instance FromJSON Workload
+
+instance FromJSON Node
+
+instance ToJSON Node
+
+class Distributor t where
+  placeD :: (a -> Maybe a) -> t a -> Maybe (t a)
+
+findFirstGoodIdx  :: (a -> Maybe a) -> a -> (Int,Maybe a) -> (Int,Maybe a)
+findFirstGoodIdx f a (c1,c2) = case (f a) of
+                        Nothing -> (c1+1,c2)
+                        Just y -> (0, Just y)
+
+findFirstGood  :: (a -> Maybe a) -> a -> Maybe a -> Maybe a
+findFirstGood f a c = case (f a) of
+                        Nothing -> c
+                        Just y -> Just y
+
+newtype RoundRobin a = RoundRobin { robinThings :: Sequence.Seq a }
+
+instance Distributor RoundRobin where
+  placeD f d = case found of
+                Nothing -> Nothing
+                Just newThing -> Just (RoundRobin (
+                  right ><
+                  left ><
+                  (Sequence.singleton newThing)))
+    where
+      left = Sequence.take index things
+      right = Sequence.drop (index + 1) things
+      (index, found) = Fold.foldr (findFirstGoodIdx f) (0,Nothing) things
+      things = robinThings d
+
+data RoomBased k num a = RoomBased
+  { identify :: a -> k
+  , score :: a -> num
+  , scores :: Map.Map k num
+  , roomThings :: Map.Map (k,num) a
+  }
+
+-- updateRoomBased :: (RoomBased k num a) -> a -> (RoomBased k num a)
+-- updateRoomBased r newThing = RoomBased {
+--   identify = ident,
+--   score = sc,
+--   scores = newScore,
+--   roomThings = (remove oldScores  -- TODO
+--
+--   where
+--     ident = identify r
+--     sc = score r
+--     newId = ident newThing
+--     newScore = sc newThing
+--     oldScores = scores r
+
+
+-- instance Distributor (RoomBased k num a) where
+--   placeD f d = case found of
+--                 Nothing -> Nothing
+--                 Just newThing -> Just (updateRoomBased newThing)
+--     where
+--       found = Map.foldr (findFirstGood f) Nothing roomThings d
+
 
 -- |Replace the first element of the list for which the computation `(a ->
 -- Maybe a)` was successful with its result, or return Nothing if no

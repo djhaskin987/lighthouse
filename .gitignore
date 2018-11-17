@@ -1,11 +1,9 @@
-# Haskell
-.cabal.sandbox.config
-.cabal-sandbox/
-dist/
+.stack-work/
+lighthouse.cabal
 
 # Editor save files
 \#*
 .#*
 .*#
-*~
 .*.sw[a-z]
+*~

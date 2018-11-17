@@ -1,0 +1,53 @@
+name:                lighthouse
+version:             0.1.0.0
+github:              "djhaskin987/lighthouse"
+license:             "Apache"
+author:              "See AUTHORS.md file"
+maintainer:          "djhaskin987@gmail.com"
+copyright:           "2018 Lighthouse Authors, see the AUTHORS.md file"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/lighthouse#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- containers >=0.5 && <0.6
+- aeson
+- Spock
+- text
+
+library:
+  source-dirs: src
+
+executables:
+  lighthouse-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - lighthouse
+
+tests:
+  lighthouse-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - lighthouse
+    - hspec
