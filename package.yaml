@@ -5,7 +5,8 @@ license:             "Apache"
 author:              "See AUTHORS.md file"
 maintainer:          "djhaskin987@gmail.com"
 copyright:           "2018 Lighthouse Authors, see the AUTHORS.md file"
-
+category:            DevOps
+synopsis:            Generic workload scheduler
 extra-source-files:
 - README.md
 - ChangeLog.md
