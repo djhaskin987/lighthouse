@@ -45,7 +45,7 @@ instance   ToJSON Assignment
 data ResourceManager =
   ResourceManager { mgrNodes :: [Node]
                   , mgrAssignments :: [Assignment]
-                  }
+                  } deriving (Show, Eq)
 
 
 -- |Replace the first element of the list for which the computation `(a ->
