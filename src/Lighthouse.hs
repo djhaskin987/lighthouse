@@ -1,6 +1,16 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Lighthouse (Node (Node), Workload (Workload), assignWorkloads, assignWorkload, place, nodeId, resources, workloads, loadId, requirements) where
+module Lighthouse (Node (Node),
+  ResourceManager (ResourceManager),
+  Workload (Workload),
+  Assignment (Assignment),
+  assignWorkloads,
+  assignWorkload,
+  place,
+  nodeId,
+  resources,
+  loadId,
+  requirements) where
 
 import           Data.Aeson       hiding (json)
 import           Data.Sequence((><))
@@ -15,18 +25,90 @@ data Workload = Workload { loadId :: Text
                          , requirements :: Map.Map Text Float
                          } deriving (Show, Eq, Generic)
 
+instance FromJSON Workload
+instance   ToJSON Workload
+
 data Node = Node { nodeId :: Text
                  , resources :: Map.Map Text Float
-                 , workloads :: [Workload]
                  } deriving (Show, Eq, Generic)
 
-instance ToJSON Workload
-
-instance FromJSON Workload
-
 instance FromJSON Node
+instance   ToJSON Node
 
-instance ToJSON Node
+data Assignment = Assignment { asgnLoad :: Text
+                             , asgnNode :: Text
+                             } deriving (Show, Eq, Generic)
+
+instance FromJSON Assignment
+instance   ToJSON Assignment
+
+data ResourceManager =
+  ResourceManager { mgrNodes :: [Node]
+                  , mgrAssignments :: [Assignment]
+                  }
+
+
+-- |Replace the first element of the list for which the computation `(a ->
+-- Maybe a)` was successful with its result, or return Nothing if no
+-- computation worked for the whole list.
+place :: (a -> Maybe a) -> [a] -> Maybe ([a], a)
+place f [] = Nothing
+place f (x:xs) = case f x of
+                 Nothing -> case place f xs of
+                              Nothing -> Nothing
+                              Just (ys, found) -> Just ((x:ys), found)
+                 Just y -> Just ((y:xs), y)
+
+
+attachWorkload :: Workload -> Node -> Maybe Node
+attachWorkload load (Node id have)
+  | Map.size used < Map.size need = Nothing
+  | not isAllPositive = Nothing
+  | otherwise =
+    Just (Node
+      id
+      leftovers)
+  where
+    -- Subtract what is required from what is available, and only show the
+    -- difference for the keys that exist in both
+    used = Map.intersectionWith
+                  (-)
+                  have
+                  need
+    need = requirements load
+    -- Check to make sure all that there were in fact enough resources
+    -- to meet the requirements' demands
+    isAllPositive = Map.foldr
+      (\v c -> v >= 0 && c)
+      True
+      used
+    -- Update values in `have` with values in `used`
+    leftovers = Map.unionWith
+      (flip const)
+      have
+      used
+
+assignWorkload :: ResourceManager -> Workload -> Maybe ResourceManager
+assignWorkload (ResourceManager nodes assignments) load = do
+  (newNodes, foundNode) <- place (attachWorkload load) nodes
+  return $ ResourceManager newNodes
+                           ((Assignment (nodeId foundNode)
+                                       (loadId load)):assignments)
+
+
+sortNodes :: [Node] -> [Node]
+sortNodes nodes = nodes
+
+sortWorkloads :: [Workload] -> [Workload]
+sortWorkloads workloads = workloads
+
+assignWorkloads :: ResourceManager -> [Workload] -> Maybe ResourceManager
+assignWorkloads mgr loads =
+  Monad.foldM assignWorkload mgr loads
+
+-- The above is a lot to bite off, so we'll work on going from a list of nodes
+-- and their workloads to a list of workloads and their nodes using ix-set
+-- another time.
 
 class Distributor t where
   placeD :: (a -> Maybe a) -> t a -> Maybe (t a)
@@ -86,62 +168,3 @@ data RoomBased k num a = RoomBased
 --       found = Map.foldr (findFirstGood f) Nothing roomThings d
 
 
--- |Replace the first element of the list for which the computation `(a ->
--- Maybe a)` was successful with its result, or return Nothing if no
--- computation worked for the whole list.
-place :: (a -> Maybe a) -> [a] -> Maybe [a]
-place f [] = Nothing
-place f (x:xs) = case f x of
-                 Nothing -> case place f xs of
-                              Nothing -> Nothing
-                              Just ys -> Just (x:ys)
-                 Just y -> Just (y:xs)
-
-attachWorkload :: Workload -> Node -> Maybe Node
-attachWorkload load (Node id have loads)
-  | Map.size used < Map.size need = Nothing
-  | not isAllPositive = Nothing
-  | otherwise =
-    Just (Node
-      id
-      leftovers
-      (load : loads))
-  where
-    -- Subtract what is required from what is available, and only show the
-    -- difference for the keys that exist in both
-    used = Map.intersectionWith
-                  (-)
-                  have
-                  need
-    need = requirements load
-    -- Check to make sure all that there were in fact enough resources
-    -- to meet the requirements' demands
-    isAllPositive = Map.foldr
-      (\v c -> v >= 0 && c)
-      True
-      used
-    -- Update values in `have` with values in `used`
-    leftovers = Map.unionWith
-      (flip const)
-      have
-      used
-
-assignWorkload :: [Node] -> Workload -> Maybe [Node]
-assignWorkload nodes load =
-  place (attachWorkload load) nodes
-
-sortNodes :: [Node] -> [Node]
-sortNodes nodes = nodes
-
-sortWorkloads :: [Workload] -> [Workload]
-sortWorkloads workloads = workloads
-
-assignWorkloads :: [Node] -> [Workload] -> Maybe [Node]
-assignWorkloads nodes loads = Monad.foldM assignWorkload sortedNodes sortedLoads
-  where
-    sortedNodes = sortNodes nodes
-    sortedLoads = sortWorkloads loads
-
--- The above is a lot to bite off, so we'll work on going from a list of nodes
--- and their workloads to a list of workloads and their nodes using ix-set
--- another time.

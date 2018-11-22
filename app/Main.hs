@@ -27,27 +27,26 @@ data AssignWorkloadsArgs =
 instance ToJSON AssignWorkloadsArgs
 instance FromJSON AssignWorkloadsArgs
 
-
 data AssignWorkloadsResults =
   AssignWorkloadsResults { successful :: Bool
-                         , results :: [Node]
+                         , assignments :: [Assignment]
                          } deriving (Show, Eq, Generic)
 
-instance ToJSON AssignWorkloadsResults
+instance   ToJSON AssignWorkloadsResults
 instance FromJSON AssignWorkloadsResults
 
 app :: Api
 app = do
   post "assign-workloads" $ do
     rpcArgs <- jsonBody' :: ApiAction AssignWorkloadsArgs
-    case assignWorkloads (nodesArgs rpcArgs) (workloadsArgs rpcArgs) of
+    case assignWorkloads (ResourceManager (nodesArgs rpcArgs) []) (workloadsArgs rpcArgs) of
       Nothing -> json $
         AssignWorkloadsResults {
           successful = False,
-          results = []
+          assignments = []
         }
-      Just nodes -> json $
+      Just (ResourceManager nodes asgn) -> json $
         AssignWorkloadsResults {
           successful = True,
-          results = nodes
+          assignments = asgn
         }
