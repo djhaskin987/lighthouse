@@ -42,23 +42,46 @@ data Assignment = Assignment { asgnLoad :: Text
 instance FromJSON Assignment
 instance   ToJSON Assignment
 
-data ResourceManager =
-  ResourceManager { mgrNodes :: [Node]
+class Distributor d where
+  place :: (a -> Maybe a) -> d a -> Maybe (d a, a)
+
+
+instance Distributor [] where
+  -- |Replace the first element of the list for which the computation `(a ->
+  -- Maybe a)` was successful with its result, or return Nothing if no
+  -- computation worked for the whole list.
+  place f [] = Nothing
+  place f (x:xs) = case f x of
+                   Nothing -> case place f xs of
+                                Nothing -> Nothing
+                                Just (ys, found) -> Just ((x:ys), found)
+                   Just y -> Just ((y:xs), y)
+
+newtype RoundRobin a = RoundRobin { robinThings :: Sequence.Seq a }
+
+instance Distributor RoundRobin where
+  place f (RoundRobin things) =
+    case found of
+      Nothing -> Nothing
+      Just newThing -> Just (RoundRobin (
+        right ><
+        left ><
+        (Sequence.singleton newThing)), newThing)
+    where
+      left = Sequence.take index things
+      right = Sequence.drop (index + 1) things
+      (index, found) = Fold.foldr (findFirstGoodIdx f) (0,Nothing) things
+
+data ResourceManager d =
+  ResourceManager { mgrNodes :: d Node
                   , mgrAssignments :: [Assignment]
-                  } deriving (Show, Eq)
+                  }
 
-
--- |Replace the first element of the list for which the computation `(a ->
--- Maybe a)` was successful with its result, or return Nothing if no
--- computation worked for the whole list.
-place :: (a -> Maybe a) -> [a] -> Maybe ([a], a)
-place f [] = Nothing
-place f (x:xs) = case f x of
-                 Nothing -> case place f xs of
-                              Nothing -> Nothing
-                              Just (ys, found) -> Just ((x:ys), found)
-                 Just y -> Just ((y:xs), y)
-
+canAttachWorkload :: Workload -> Node -> Bool
+canAttachWorkload load node =
+  case (attachWorkload load node) of
+    Nothing -> False
+    Just _ -> True
 
 attachWorkload :: Workload -> Node -> Maybe Node
 attachWorkload load (Node id have)
@@ -88,31 +111,6 @@ attachWorkload load (Node id have)
       have
       used
 
-assignWorkload :: ResourceManager -> Workload -> Maybe ResourceManager
-assignWorkload (ResourceManager nodes assignments) load = do
-  (newNodes, foundNode) <- place (attachWorkload load) nodes
-  return $ ResourceManager newNodes
-                           ((Assignment (nodeId foundNode)
-                                       (loadId load)):assignments)
-
-
-sortNodes :: [Node] -> [Node]
-sortNodes nodes = nodes
-
-sortWorkloads :: [Workload] -> [Workload]
-sortWorkloads workloads = workloads
-
-assignWorkloads :: ResourceManager -> [Workload] -> Maybe ResourceManager
-assignWorkloads mgr loads =
-  Monad.foldM assignWorkload mgr loads
-
--- The above is a lot to bite off, so we'll work on going from a list of nodes
--- and their workloads to a list of workloads and their nodes using ix-set
--- another time.
-
-class Distributor t where
-  placeD :: (a -> Maybe a) -> t a -> Maybe (t a)
-
 findFirstGoodIdx  :: (a -> Maybe a) -> a -> (Int,Maybe a) -> (Int,Maybe a)
 findFirstGoodIdx f a (c1,c2) = case (f a) of
                         Nothing -> (c1+1,c2)
@@ -123,27 +121,38 @@ findFirstGood f a c = case (f a) of
                         Nothing -> c
                         Just y -> Just y
 
-newtype RoundRobin a = RoundRobin { robinThings :: Sequence.Seq a }
+assignWorkload :: Distributor d => ResourceManager d -> Workload -> Maybe (ResourceManager d)
+assignWorkload (ResourceManager nodes assignments) load = do
+  (newNodes, foundNode) <- place (attachWorkload load) nodes
+  return $ ResourceManager newNodes
+                           ((Assignment (nodeId foundNode)
+                                       (loadId load)):assignments)
 
-instance Distributor RoundRobin where
-  placeD f d = case found of
-                Nothing -> Nothing
-                Just newThing -> Just (RoundRobin (
-                  right ><
-                  left ><
-                  (Sequence.singleton newThing)))
-    where
-      left = Sequence.take index things
-      right = Sequence.drop (index + 1) things
-      (index, found) = Fold.foldr (findFirstGoodIdx f) (0,Nothing) things
-      things = robinThings d
+sortNodes :: [Node] -> [Node]
+sortNodes nodes = nodes
 
-data RoomBased k num a = RoomBased
-  { identify :: a -> k
-  , score :: a -> num
-  , scores :: Map.Map k num
-  , roomThings :: Map.Map (k,num) a
-  }
+sortWorkloads :: [Workload] -> [Workload]
+sortWorkloads workloads = workloads
+
+assignWorkloads :: Distributor d => ResourceManager d ->
+  [Workload] -> Maybe (ResourceManager d)
+assignWorkloads mgr loads =
+  Monad.foldM assignWorkload mgr loads
+
+-- The above is a lot to bite off, so we'll work on going from a list of nodes
+-- and their workloads to a list of workloads and their nodes using ix-set
+-- another time.
+
+-- class Distributor t where
+--   placeD :: (a -> Maybe a) -> t a -> Maybe (t a)
+
+
+-- data RoomBased k num a = RoomBased
+--   { identify :: a -> k
+--   , score :: a -> num
+--   , scores :: Map.Map k num
+--   , roomThings :: Map.Map (k,num) a
+--   }
 
 -- updateRoomBased :: (RoomBased k num a) -> a -> (RoomBased k num a)
 -- updateRoomBased r newThing = RoomBased {
