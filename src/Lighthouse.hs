@@ -45,7 +45,6 @@ instance   ToJSON Assignment
 class Distributor d where
   place :: (a -> Maybe a) -> d a -> Maybe (d a, a)
 
-
 instance Distributor [] where
   -- |Replace the first element of the list for which the computation `(a ->
   -- Maybe a)` was successful with its result, or return Nothing if no
@@ -72,10 +71,12 @@ instance Distributor RoundRobin where
       right = Sequence.drop (index + 1) things
       (index, found) = Fold.foldr (findFirstGoodIdx f) (0,Nothing) things
 
-data ResourceManager d =
-  ResourceManager { mgrNodes :: d Node
+
+data ResourceManager t n =
+  ResourceManager { mgrNodes :: t n
                   , mgrAssignments :: [Assignment]
-                  }
+                  } deriving (Eq, Show)
+
 
 canAttachWorkload :: Workload -> Node -> Bool
 canAttachWorkload load node =
@@ -121,7 +122,7 @@ findFirstGood f a c = case (f a) of
                         Nothing -> c
                         Just y -> Just y
 
-assignWorkload :: Distributor d => ResourceManager d -> Workload -> Maybe (ResourceManager d)
+assignWorkload :: Distributor d => ResourceManager d Node -> Workload -> Maybe (ResourceManager d Node)
 assignWorkload (ResourceManager nodes assignments) load = do
   (newNodes, foundNode) <- place (attachWorkload load) nodes
   return $ ResourceManager newNodes
@@ -134,8 +135,8 @@ sortNodes nodes = nodes
 sortWorkloads :: [Workload] -> [Workload]
 sortWorkloads workloads = workloads
 
-assignWorkloads :: Distributor d => ResourceManager d ->
-  [Workload] -> Maybe (ResourceManager d)
+assignWorkloads :: Distributor d => ResourceManager d Node ->
+  [Workload] -> Maybe (ResourceManager d Node)
 assignWorkloads mgr loads =
   Monad.foldM assignWorkload mgr loads
 

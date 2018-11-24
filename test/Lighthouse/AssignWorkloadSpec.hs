@@ -26,7 +26,9 @@ nearEqNodeList a b =
     cmps = zip a b
     bmps = map (uncurry nearEqNode) cmps
 
-nearEqAssignResMgr :: Maybe ResourceManager -> Maybe ResourceManager -> Bool
+nearEqAssignResMgr :: Maybe (ResourceManager [] Node)
+                   -> Maybe (ResourceManager [] Node)
+                   -> Bool
 nearEqAssignResMgr a b =
   case a of
     Nothing -> case b of
