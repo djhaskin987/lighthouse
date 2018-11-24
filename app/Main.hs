@@ -1,13 +1,13 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
-import           Web.Spock
-import           Web.Spock.Config
-
 import           Data.Aeson       hiding (json)
 import           Data.Monoid      ((<>))
 import           Data.Text        (Text, pack)
 import           GHC.Generics
 import           Lighthouse
+import           Web.Spock
+import           Web.Spock.Config
+import qualified Data.Map.Strict as Map
 
 type Api = SpockM () () () ()
 
@@ -29,7 +29,7 @@ instance FromJSON AssignWorkloadsArgs
 
 data AssignWorkloadsResults =
   AssignWorkloadsResults { successful :: Bool
-                         , assignments :: [Assignment]
+                         , assignments :: Map.Map WorkloadID NodeID
                          } deriving (Show, Eq, Generic)
 
 instance   ToJSON AssignWorkloadsResults
@@ -39,11 +39,11 @@ app :: Api
 app = do
   post "assign-workloads" $ do
     rpcArgs <- jsonBody' :: ApiAction AssignWorkloadsArgs
-    case assignWorkloads (ResourceManager (nodesArgs rpcArgs) []) (workloadsArgs rpcArgs) of
+    case assignWorkloads (ResourceManager (nodesArgs rpcArgs) Map.empty) (workloadsArgs rpcArgs) of
       Nothing -> json $
         AssignWorkloadsResults {
           successful = False,
-          assignments = []
+          assignments = Map.empty
         }
       Just (ResourceManager nodes asgn) -> json $
         AssignWorkloadsResults {

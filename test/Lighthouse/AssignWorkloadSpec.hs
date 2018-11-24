@@ -2,42 +2,8 @@
 module Lighthouse.AssignWorkloadSpec (spec) where
 
 import Test.Hspec
-import qualified Control.Monad as Monad
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Lighthouse
-
-nearEqNode :: Node -> Node -> Bool
-nearEqNode a b =
-    nodeId a == nodeId b &&
-    Map.size resourcesClose == Map.size (resources a) &&
-    Map.size resourcesClose == Map.size (resources b) &&
-    allResourcesClose
-  where
-    resourcesClose = Map.intersectionWith
-      (\a b -> (a - 0.005) <= b && b <= (a + 0.005))
-      (resources a)
-      (resources b)
-    allResourcesClose = and resourcesClose
-
-nearEqNodeList :: [Node] -> [Node] -> Bool
-nearEqNodeList a b =
-    and bmps
-  where
-    cmps = zip a b
-    bmps = map (uncurry nearEqNode) cmps
-
-nearEqAssignResMgr :: Maybe (ResourceManager [] Node)
-                   -> Maybe (ResourceManager [] Node)
-                   -> Bool
-nearEqAssignResMgr a b =
-  case a of
-    Nothing -> case b of
-                 Nothing -> True
-                 Just v -> False
-    Just (ResourceManager aNs aAs) -> case b of
-                Nothing -> True
-                Just (ResourceManager bNs bAs) ->
-                  ((nearEqNodeList aNs bNs) && aAs == bAs)
 
 spec :: Spec
 spec = do
@@ -49,32 +15,33 @@ spec = do
           Lighthouse.assignWorkload normalResMgr sillyReq `shouldBe` Nothing
     describe "standard case" $
       it "will do the normal thing" $
-        shouldSatisfy
-          (Lighthouse.assignWorkload normalResMgr req)
-          (nearEqAssignResMgr resultResMgr)
+          (Lighthouse.assignWorkload normalResMgr req) `shouldBe` resultResMgr
   where
     emptyResMgr = Lighthouse.ResourceManager
       []
-      []
+      Map.empty
     normalResMgr = Lighthouse.ResourceManager
       nodes
-      []
+      Map.empty
     resultResMgr = Just $ Lighthouse.ResourceManager
       [firstNodeModified, secondNode]
-      [(Assignment "first" "good")]
+      (Map.fromList [("good","first")])
     firstNode = Lighthouse.Node
       "first"
-      (Map.fromList [("cpu", 4.0), ("mem", 8.0)])
+      (Map.fromList [("cpu", 40), ("mem", 80)])
+      Map.empty
     secondNode = Lighthouse.Node
       "second"
-      (Map.fromList [("cpu", 2.0), ("mem", 4.0)])
+      (Map.fromList [("cpu", 20), ("mem", 40)])
+      Map.empty
     firstNodeModified = Lighthouse.Node
       "first"
-      (Map.fromList [("cpu", 0.2), ("mem", 5.6)])
+      (Map.fromList [("cpu", 02), ("mem", 56)])
+      (Map.fromList [("good", req)])
     nodes = [firstNode, secondNode]
     sillyReq = Lighthouse.Workload
       "bad"
-      (Map.fromList [("cpu", 8.8), ("mem", 16.4)])
+      (Map.fromList [("cpu", 88), ("mem", 164)])
     req = Lighthouse.Workload
       "good"
-      (Map.fromList [("cpu", 3.8), ("mem", 2.4)])
+      (Map.fromList [("cpu", 38), ("mem", 24)])

@@ -1,16 +1,20 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Lighthouse (Node (Node),
+module Lighthouse (
+  Node (Node),
   ResourceManager (ResourceManager),
   Workload (Workload),
-  Assignment (Assignment),
-  assignWorkloads,
+  NodeID,
+  WorkloadID,
   assignWorkload,
-  place,
-  nodeId,
-  resources,
+  assignWorkloads,
+  fromListRR,
   loadId,
-  requirements) where
+  nodeId,
+  place,
+  requirements,
+  resources
+                  ) where
 
 import           Data.Aeson       hiding (json)
 import           Data.Sequence((><))
@@ -18,29 +22,25 @@ import           Data.Text        (Text, pack)
 import           GHC.Generics
 import qualified Control.Monad as Monad
 import qualified Data.Foldable as Fold
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import qualified Data.Sequence as Sequence
-
-data Workload = Workload { loadId :: Text
-                         , requirements :: Map.Map Text Float
+type WorkloadID = Text
+data Workload = Workload { loadId :: WorkloadID
+                         , requirements :: Map.Map Text Int
                          } deriving (Show, Eq, Generic)
 
 instance FromJSON Workload
 instance   ToJSON Workload
 
-data Node = Node { nodeId :: Text
-                 , resources :: Map.Map Text Float
+type NodeID = Text
+data Node = Node { nodeId :: NodeID
+                 , resources :: Map.Map Text Int
+                 , assignedWorkloads :: Map.Map Text Workload
                  } deriving (Show, Eq, Generic)
 
 instance FromJSON Node
 instance   ToJSON Node
-
-data Assignment = Assignment { asgnLoad :: Text
-                             , asgnNode :: Text
-                             } deriving (Show, Eq, Generic)
-
-instance FromJSON Assignment
-instance   ToJSON Assignment
 
 class Distributor d where
   place :: (a -> Maybe a) -> d a -> Maybe (d a, a)
@@ -56,7 +56,8 @@ instance Distributor [] where
                                 Just (ys, found) -> Just ((x:ys), found)
                    Just y -> Just ((y:xs), y)
 
-newtype RoundRobin a = RoundRobin { robinThings :: Sequence.Seq a }
+newtype RoundRobin a =
+  RoundRobin { robinThings :: Sequence.Seq a } deriving (Show, Eq)
 
 instance Distributor RoundRobin where
   place f (RoundRobin things) =
@@ -69,12 +70,15 @@ instance Distributor RoundRobin where
     where
       left = Sequence.take index things
       right = Sequence.drop (index + 1) things
-      (index, found) = Fold.foldr (findFirstGoodIdx f) (0,Nothing) things
+      (index, found) = Fold.foldr (findFirstGoodIdx f) (0, Nothing) things
+
+fromListRR :: [Node] -> RoundRobin Node
+fromListRR nodeList = RoundRobin $ Sequence.fromList nodeList
 
 
 data ResourceManager t n =
   ResourceManager { mgrNodes :: t n
-                  , mgrAssignments :: [Assignment]
+                  , mgrAssignments :: (Map.Map WorkloadID NodeID)
                   } deriving (Eq, Show)
 
 
@@ -85,13 +89,14 @@ canAttachWorkload load node =
     Just _ -> True
 
 attachWorkload :: Workload -> Node -> Maybe Node
-attachWorkload load (Node id have)
+attachWorkload load (Node id have attached)
   | Map.size used < Map.size need = Nothing
   | not isAllPositive = Nothing
   | otherwise =
     Just (Node
       id
-      leftovers)
+      leftovers
+      (Map.insert (loadId load) load attached))
   where
     -- Subtract what is required from what is available, and only show the
     -- difference for the keys that exist in both
@@ -125,9 +130,12 @@ findFirstGood f a c = case (f a) of
 assignWorkload :: Distributor d => ResourceManager d Node -> Workload -> Maybe (ResourceManager d Node)
 assignWorkload (ResourceManager nodes assignments) load = do
   (newNodes, foundNode) <- place (attachWorkload load) nodes
-  return $ ResourceManager newNodes
-                           ((Assignment (nodeId foundNode)
-                                       (loadId load)):assignments)
+  return $ ResourceManager
+            newNodes $
+            Map.insert
+              (loadId load)
+              (nodeId foundNode)
+              assignments
 
 sortNodes :: [Node] -> [Node]
 sortNodes nodes = nodes
