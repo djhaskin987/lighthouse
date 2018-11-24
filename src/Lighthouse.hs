@@ -8,6 +8,8 @@ module Lighthouse (
   WorkloadID,
   assignWorkload,
   assignWorkloads,
+  mgrNodes,
+  mgrAssignments,
   fromListRR,
   loadId,
   nodeId,

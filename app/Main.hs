@@ -18,9 +18,14 @@ main = do
   spockCfg <- defaultSpockCfg () PCNoDatabase ()
   runSpock 8087 (spock spockCfg app)
 
+data AssignmentStrategy = Prioritized | RoundRobin deriving (Show, Eq, Generic)
+
+instance ToJSON AssignmentStrategy
+instance FromJSON AssignmentStrategy
 
 data AssignWorkloadsArgs =
-  AssignWorkloadsArgs { nodesArgs :: [Node]
+  AssignWorkloadsArgs { assignmentStrategy :: AssignmentStrategy
+                      , nodesArgs :: [Node]
                       , workloadsArgs :: [Workload]
                       } deriving (Show, Eq, Generic)
 
@@ -35,17 +40,32 @@ data AssignWorkloadsResults =
 instance   ToJSON AssignWorkloadsResults
 instance FromJSON AssignWorkloadsResults
 
+assignmentsGiven :: AssignWorkloadsArgs -> Maybe (Map.Map WorkloadID NodeID)
+assignmentsGiven rpcArgs = 
+  case (assignmentStrategy rpcArgs) of
+    Prioritized -> do
+      prTarget <- assignWorkloads prResMgr loads
+      return $ mgrAssignments prTarget
+    RoundRobin -> do
+      rrTarget <- assignWorkloads rrResMgr loads
+      return $ mgrAssignments rrTarget
+  where
+    loads = (workloadsArgs rpcArgs)
+    nodes = (nodesArgs rpcArgs)
+    prResMgr = (ResourceManager nodes Map.empty)
+    rrResMgr = (ResourceManager (fromListRR nodes) Map.empty)
+
 app :: Api
 app = do
   post "assign-workloads" $ do
     rpcArgs <- jsonBody' :: ApiAction AssignWorkloadsArgs
-    case assignWorkloads (ResourceManager (nodesArgs rpcArgs) Map.empty) (workloadsArgs rpcArgs) of
+    case (assignmentsGiven rpcArgs) of
       Nothing -> json $
         AssignWorkloadsResults {
           successful = False,
           assignments = Map.empty
         }
-      Just (ResourceManager nodes asgn) -> json $
+      Just asgn -> json $
         AssignWorkloadsResults {
           successful = True,
           assignments = asgn
