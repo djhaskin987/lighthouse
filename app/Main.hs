@@ -18,6 +18,12 @@ main = do
   spockCfg <- defaultSpockCfg () PCNoDatabase ()
   runSpock 8087 (spock spockCfg app)
 
+instance FromJSON (Workload Text Text Float)
+instance   ToJSON (Workload Text Text Float)
+
+instance FromJSON (Node Text Text Text Float)
+instance   ToJSON (Node Text Text Text Float)
+
 data AssignmentStrategy = Prioritized | RoundRobin deriving (Show, Eq, Generic)
 
 instance ToJSON AssignmentStrategy

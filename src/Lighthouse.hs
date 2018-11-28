@@ -27,25 +27,22 @@ import qualified Data.Foldable as Fold
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Sequence as Sequence
-type WorkloadID = Text
-data Workload = Workload { loadId :: WorkloadID
-                         , requirements :: Map.Map Text Int
-                         } deriving (Show, Eq, Generic)
 
-instance FromJSON Workload
-instance   ToJSON Workload
+data Workload w r n =
+  Workload { loadId :: w
+           , requirements :: Map.Map r n
+           } deriving (Show, Eq, Generic)
 
-type NodeID = Text
-data Node = Node { nodeId :: NodeID
-                 , resources :: Map.Map Text Int
-                 , assignedWorkloads :: Map.Map Text Workload
+
+data Node i w r n = Node { nodeId :: i
+                 , resources :: Map.Map r n
+                 , assignedWorkloads :: Map.Map w (Workload w r n)
                  } deriving (Show, Eq, Generic)
 
-instance FromJSON Node
-instance   ToJSON Node
-
 class Distributor d where
-  place :: (a -> Maybe a) -> d a -> Maybe (d a, a)
+  place :: ((Node i w r n) -> (Maybe (Node i w r n)))
+                           -> d (Node i w r n)
+                           -> Maybe (d (Node i w r n), (Node i w r n))
 
 instance Distributor [] where
   -- |Replace the first element of the list for which the computation `(a ->
@@ -58,6 +55,11 @@ instance Distributor [] where
                                 Just (ys, found) -> Just ((x:ys), found)
                    Just y -> Just ((y:xs), y)
 
+findFirstGoodIdx  :: (a -> Maybe a) -> a -> (Int,Maybe a) -> (Int,Maybe a)
+findFirstGoodIdx f a (c1,c2) = case (f a) of
+                        Nothing -> (c1+1,c2)
+                        Just y -> (0, Just y)
+
 newtype RoundRobin a =
   RoundRobin { robinThings :: Sequence.Seq a } deriving (Show, Eq)
 
@@ -65,32 +67,77 @@ instance Distributor RoundRobin where
   place f (RoundRobin things) =
     case found of
       Nothing -> Nothing
-      Just newThing -> Just (RoundRobin (
-        right ><
-        left ><
-        (Sequence.singleton newThing)), newThing)
+      Just newThing -> Just $ (RoundRobin (right >< left), newThing)
     where
-      left = Sequence.take index things
+      left = Sequence.take (index + 1) things
       right = Sequence.drop (index + 1) things
       (index, found) = Fold.foldr (findFirstGoodIdx f) (0, Nothing) things
 
-fromListRR :: [Node] -> RoundRobin Node
+fromListRR :: (Ord i, Ord w, Ord r, Num n) => [(Node i w r n)] -> RoundRobin (Node i w r n)
 fromListRR nodeList = RoundRobin $ Sequence.fromList nodeList
 
+findFirstGood  :: (a -> Maybe a) -> a -> Maybe a -> Maybe a
+findFirstGood f a c = case (f a) of
+                        Nothing -> c
+                        Just y -> Just y
 
-data ResourceManager t n =
-  ResourceManager { mgrNodes :: t n
-                  , mgrAssignments :: (Map.Map WorkloadID NodeID)
+score :: (Ord k, Num n) => Map.Map k n -> Map.Map k n -> Maybe n
+score rubric parts
+  | Map.size scored < Map.size rubric = Nothing
+  | otherwise =
+    Map.foldr (+) (fromInteger 0) scored
+  where
+    scored = Map.intersectionWith (*) rubric parts
+
+data RoomBased i r n a =
+  RoomBased { roomRubric :: Map.Map r n
+            , roomScores :: Map.Map i n
+            , roomThings :: Map.Map (n, i) a
+            } deriving (Eq, Show)
+
+fromListRB :: (Ord i, Ord w, Ord r, Num n)
+           => Map.Map i n
+           -> [(Node i w r n)]
+           -> Maybe (RoomBased i r n (Node i w r n))
+fromListRB rubric nodeList = RoomBased rubric nodeScores nodes
+  where
+    (nodeScores, nodes) =
+      foldr (\v (c1,c2) ->
+              let nodeScore = score rubric (resources v) in
+                  ((Map.insert (nodeId v) nodeScore c1),
+                   (Map.insert (nodeScore, (nodeId v)) v c2)))
+            (Map.empty, Map.empty)
+            nodeList
+
+instance Distributor (RoomBased i r n) where
+  place f (RoomBased ru sc th) = do
+    found <- Fold.foldr (findFirstGood f) Nothing th
+    newScore <- score ru (resources found)
+    oldScore <- Map.lookup (nodeId found) sc
+    return $ (RoomBased
+                ru
+                (Map.insert found newScore sc)
+                (Map.insert (newScore, (nodeId found)) found
+                  (Map.delete (oldScore,(nodeId found)) th)))
+-- TODO continue parameterizing types by ordered id and numerical type
+--
+data ResourceManager d i w =
+  ResourceManager { mgrNodes :: d
+                  , mgrAssignments :: (Map.Map w i)
                   } deriving (Eq, Show)
 
 
-canAttachWorkload :: Workload -> Node -> Bool
+canAttachWorkload :: (Workload w r n)
+                  -> (Node i w r n)
+                  -> Bool
 canAttachWorkload load node =
   case (attachWorkload load node) of
     Nothing -> False
     Just _ -> True
 
-attachWorkload :: Workload -> Node -> Maybe Node
+attachWorkload :: (Workload w r n)
+               -> (Node i w r n)
+               -> Maybe (Node i w r n)
 attachWorkload load (Node id have attached)
   | Map.size used < Map.size need = Nothing
   | not isAllPositive = Nothing
@@ -119,17 +166,10 @@ attachWorkload load (Node id have attached)
       have
       used
 
-findFirstGoodIdx  :: (a -> Maybe a) -> a -> (Int,Maybe a) -> (Int,Maybe a)
-findFirstGoodIdx f a (c1,c2) = case (f a) of
-                        Nothing -> (c1+1,c2)
-                        Just y -> (0, Just y)
-
-findFirstGood  :: (a -> Maybe a) -> a -> Maybe a -> Maybe a
-findFirstGood f a c = case (f a) of
-                        Nothing -> c
-                        Just y -> Just y
-
-assignWorkload :: Distributor d => ResourceManager d Node -> Workload -> Maybe (ResourceManager d Node)
+assignWorkload :: Distributor d
+               => (ResourceManager (d (Node i w r n)) i w)
+               -> (Workload w r n)
+               -> Maybe (ResourceManager (d (Node i w r n)) i w)
 assignWorkload (ResourceManager nodes assignments) load = do
   (newNodes, foundNode) <- place (attachWorkload load) nodes
   return $ ResourceManager
@@ -139,14 +179,16 @@ assignWorkload (ResourceManager nodes assignments) load = do
               (nodeId foundNode)
               assignments
 
-sortNodes :: [Node] -> [Node]
+sortNodes :: [(Node i w r n)] -> [(Node i w r n)]
 sortNodes nodes = nodes
 
-sortWorkloads :: [Workload] -> [Workload]
+sortWorkloads :: [(Workload w r n)] -> [(Workload w r n)]
 sortWorkloads workloads = workloads
 
-assignWorkloads :: Distributor d => ResourceManager d Node ->
-  [Workload] -> Maybe (ResourceManager d Node)
+assignWorkloads :: Distributor d
+                => (ResourceManager (d (Node i w r n)) i w)
+                -> [(Workload w r n)]
+                -> Maybe (ResourceManager (d (Node i w r n)) i w)
 assignWorkloads mgr loads =
   Monad.foldM assignWorkload mgr loads
 
