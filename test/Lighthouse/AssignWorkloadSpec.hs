@@ -1,36 +1,71 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Lighthouse.AssignWorkloadSpec (spec) where
 
-import Test.Hspec
-import qualified Data.Map.Strict as Map
-import Lighthouse
 import           Data.Text        (Text, pack)
-
-type TestNode = Node Text Text Text Int
+import           Lighthouse
+import           Lighthouse.TestUtilities
+import           Test.Hspec
+import qualified Data.Map.Strict as Map
 
 spec :: Spec
 spec = do
-    describe "empty nodes" $
-      it "is supposed to return empty list" $
-          Lighthouse.assignWorkload emptyResMgr req `shouldBe` Nothing
-    describe "empty nodes with RR" $
-      it "is supposed to return empty list" $
+    describe "empty nodes" $ do
+      it "is supposed to return empty list PR" $
+          Lighthouse.assignWorkload emptyPRMgr req `shouldBe` Nothing
+      it "is supposed to return empty list RR" $
           Lighthouse.assignWorkload emptyRRMgr req `shouldBe` Nothing
-    describe "silly case" $
-      it "is supposed to return nothing" $
-          Lighthouse.assignWorkload normalResMgr sillyReq `shouldBe` Nothing
-    describe "standard case" $
-      it "will do the normal thing" $
-          (Lighthouse.assignWorkload normalResMgr req) `shouldBe` resultResMgr
+      it "is supposed to return empty list RB" $
+          Lighthouse.assignWorkload emptyRBMgr req `shouldBe` Nothing
+    describe "silly case" $ do
+      it "is supposed to return nothing PR" $
+          Lighthouse.assignWorkload normalPRResMgr sillyReq `shouldBe` Nothing
+      it "is supposed to return nothing RR" $
+          Lighthouse.assignWorkload normalRRResMgr sillyReq `shouldBe` Nothing
+      it "is supposed to return nothing RB" $
+          Lighthouse.assignWorkload normalRBResMgr sillyReq `shouldBe` Nothing
+    describe "standard case" $ do
+      it "will do the normal thing PR" $
+          (Lighthouse.assignWorkload normalPRResMgr req)
+          `shouldBe` resultPRResMgr
+      it "will do the normal thing RR" $
+          (Lighthouse.assignWorkload normalRRResMgr req)
+          `shouldBe` resultRRResMgr
+      it "will do the normal thing RB" $
+          (Lighthouse.assignWorkload normalRBResMgr req)
+          `shouldBe` resultRBResMgr
   where
-    emptyResMgr = Lighthouse.ResourceManager
+    emptyPRMgr = Lighthouse.ResourceManager
       (fromListPR ([] :: [TestNode]))
       Map.empty
-    normalResMgr = Lighthouse.ResourceManager
+    emptyRRMgr = Lighthouse.ResourceManager
+      (Lighthouse.fromListRR ([] :: [(TestNode)]))
+      Map.empty
+    emptyRBMgr = Lighthouse.ResourceManager
+      ((begoneMaybe (Lighthouse.fromListRB
+                    (Map.fromList [("cpu", -1), ("mem", -1)])
+                    ([] :: [(TestNode)]))) :: RoomBased Text Text Text Int)
+      Map.empty
+    normalPRResMgr = Lighthouse.ResourceManager
       (fromListPR nodes)
       Map.empty
-    resultResMgr = Just $ Lighthouse.ResourceManager
+    normalRRResMgr = Lighthouse.ResourceManager
+      (fromListRR nodes)
+      Map.empty
+    normalRBResMgr = Lighthouse.ResourceManager
+      (begoneMaybe (fromListRB
+                    (Map.fromList [("cpu", -1), ("mem", -1)])
+                    nodes) :: RoomBased Text Text Text Int)
+      Map.empty
+    resultPRResMgr = Just $ Lighthouse.ResourceManager
       (fromListPR [firstNodeModified, secondNode])
+      (Map.fromList [("good","first")])
+    resultRRResMgr = Just $ Lighthouse.ResourceManager
+      (fromListRR [secondNode, firstNodeModified])
+      (Map.fromList [("good","first")])
+    resultRBResMgr = Just $ Lighthouse.ResourceManager
+      (begoneMaybe (fromListRB
+                    (Map.fromList [("cpu", -1), ("mem", -1)])
+                    [firstNodeModified, secondNode]))
       (Map.fromList [("good","first")])
     firstNode = Lighthouse.Node
       "first"
@@ -51,6 +86,3 @@ spec = do
     req = Lighthouse.Workload
       "good"
       (Map.fromList [("cpu", 38), ("mem", 24)])
-    emptyRRMgr = Lighthouse.ResourceManager
-      (Lighthouse.fromListRR ([] :: [(Node Text Text Text Int)]))
-      Map.empty

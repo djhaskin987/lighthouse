@@ -4,12 +4,15 @@ module Lighthouse (
   Node (Node),
   ResourceManager (ResourceManager),
   Workload (Workload),
+  RoomBased,
   assignWorkload,
   assignWorkloads,
   mgrNodes,
   mgrAssignments,
+  emptyRoomBased,
   fromListPR,
   fromListRR,
+  fromListRB,
   loadId,
   nodeId,
   place,
@@ -137,6 +140,9 @@ data RoomBased i w r n =
             , roomScores :: Map.Map i n
             , roomThings :: Map.Map (n, i) (Node i w r n)
             } deriving (Eq, Show)
+
+emptyRoomBased :: RoomBased i w r n
+emptyRoomBased = RoomBased Map.empty Map.empty Map.empty
 
 fromListRB :: (Ord i, Ord w, Ord r, Ord n, Num n)
            => Map.Map r n
