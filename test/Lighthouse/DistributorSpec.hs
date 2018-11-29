@@ -4,16 +4,18 @@ module Lighthouse.DistributorSpec (spec) where
 import Test.Hspec
 import qualified Data.Map.Strict as Map
 import Lighthouse
+import           Data.Text        (Text, pack)
 
+type TestNode = Node Text Text Text Int
 
 spec :: Spec
 spec = do
     describe "prioritized nodes" $
-      it "is supposed to return empty list" $
+      it "should assign all to the first node" $
           Lighthouse.assignWorkloads startPrioritizedMgr reqs
             `shouldBe` resultPrioritizedMgr
     describe "round robin nodes" $
-      it "is supposed to return nothing" $
+      it "should assign first to first, second to second" $
           Lighthouse.assignWorkloads startRRMgr reqs
              `shouldBe` resultRRMgr
   where
@@ -27,7 +29,7 @@ spec = do
       Map.empty
     nodes = [firstNode, secondNode]
     startPrioritizedMgr = Lighthouse.ResourceManager
-      nodes
+      (Lighthouse.fromListPR nodes)
       Map.empty
     startRRMgr = Lighthouse.ResourceManager
       (Lighthouse.fromListRR nodes)
@@ -44,8 +46,11 @@ spec = do
                      ("second", secondReq)])
     secondNodePrioritized = secondNode
     resultPrioritizedMgr = Just $ Lighthouse.ResourceManager
-      [firstNodePrioritized, secondNodePrioritized]
-      (Map.fromList [("first","firstN"), ("second","firstN")])
+      (Lighthouse.fromListPR
+        [firstNodePrioritized,
+         secondNodePrioritized])
+      (Map.fromList [("first","firstN"),
+                     ("second","firstN")])
     firstNodeRR = Lighthouse.Node
       "firstN"
       (Map.fromList [("cpu", 27), ("mem", 69)])
@@ -57,4 +62,4 @@ spec = do
     resultRRMgr = Just $ Lighthouse.ResourceManager
       (Lighthouse.fromListRR [firstNodeRR, secondNodeRR])
       (Map.fromList [("first","firstN"),
-       ("second","secondN")])
+                     ("second","secondN")])

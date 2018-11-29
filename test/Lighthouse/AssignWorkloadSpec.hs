@@ -4,6 +4,9 @@ module Lighthouse.AssignWorkloadSpec (spec) where
 import Test.Hspec
 import qualified Data.Map.Strict as Map
 import Lighthouse
+import           Data.Text        (Text, pack)
+
+type TestNode = Node Text Text Text Int
 
 spec :: Spec
 spec = do
@@ -21,13 +24,13 @@ spec = do
           (Lighthouse.assignWorkload normalResMgr req) `shouldBe` resultResMgr
   where
     emptyResMgr = Lighthouse.ResourceManager
-      []
+      (fromListPR ([] :: [TestNode]))
       Map.empty
     normalResMgr = Lighthouse.ResourceManager
-      nodes
+      (fromListPR nodes)
       Map.empty
     resultResMgr = Just $ Lighthouse.ResourceManager
-      [firstNodeModified, secondNode]
+      (fromListPR [firstNodeModified, secondNode])
       (Map.fromList [("good","first")])
     firstNode = Lighthouse.Node
       "first"

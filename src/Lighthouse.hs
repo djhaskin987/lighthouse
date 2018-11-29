@@ -8,6 +8,7 @@ module Lighthouse (
   assignWorkloads,
   mgrNodes,
   mgrAssignments,
+  fromListPR,
   fromListRR,
   loadId,
   nodeId,
@@ -43,9 +44,22 @@ instance (FromJSON w, FromJSONKey r, Ord r, FromJSON n)
 instance (ToJSON w, ToJSONKey r, Ord r, ToJSON n)
   => ToJSON (Workload w r n)
 
-instance (FromJSONKey r) => FromJSON (Node i w r n)
+instance (FromJSON i,
+          FromJSON w,
+          FromJSONKey w,
+          Ord w,
+          FromJSONKey r,
+          Ord r,
+          FromJSON n)
+  => FromJSON (Node i w r n)
 
-instance (ToJSON i, ToJSON w, ToJSONKey r, Ord r, ToJSON n)
+instance (ToJSON i,
+          ToJSON w,
+          ToJSONKey w,
+          Ord w,
+          ToJSONKey r,
+          Ord r,
+          ToJSON n)
   => ToJSON (Node i w r n)
 
 class Distributor d where
@@ -71,6 +85,11 @@ instance Distributor Prioritized where
                      Just $ (Prioritized (x <| ys), found)
       Just y -> Just $ (Prioritized (y <| xs), y)
 
+fromListPR :: (Ord i, Ord w, Ord r, Num n)
+           => [(Node i w r n)]
+           -> Prioritized i w r n
+fromListPR nodeList = Prioritized $ Sequence.fromList nodeList
+
 findFirstGoodIdx  :: (a -> Maybe a) -> a -> (Int,Maybe a) -> (Int,Maybe a)
 findFirstGoodIdx f a (c1,c2) = case (f a) of
                         Nothing -> (c1+1,c2)
@@ -84,9 +103,11 @@ instance Distributor RoundRobin where
   place f (RoundRobin things) =
     case found of
       Nothing -> Nothing
-      Just newThing -> Just $ (RoundRobin (right >< left), newThing)
+      Just newThing -> Just $ (RoundRobin (right ><
+                                           (Sequence.singleton newThing) ><
+                                           left), newThing)
     where
-      left = Sequence.take (index + 1) things
+      left = Sequence.take (index) things
       right = Sequence.drop (index + 1) things
       (index, found) = Fold.foldr (findFirstGoodIdx f) (0, Nothing) things
 
@@ -144,8 +165,7 @@ instance Distributor RoomBased where
                   (Map.insert id newScore sc)
                   (Map.insert (newScore, id) found
                     (Map.delete (oldScore, id) th))), found)
--- TODO continue parameterizing types by ordered id and numerical type
---
+
 data ResourceManager d i w =
   ResourceManager { mgrNodes :: d
                   , mgrAssignments :: (Map.Map w i)
@@ -218,42 +238,3 @@ assignWorkloads :: (Ord i, Ord w, Ord r, Ord n, Num n, Distributor d)
                 -> Maybe (ResourceManager (d i w r n) i w)
 assignWorkloads mgr loads =
   Monad.foldM assignWorkload mgr loads
-
--- The above is a lot to bite off, so we'll work on going from a list of nodes
--- and their workloads to a list of workloads and their nodes using ix-set
--- another time.
-
--- class Distributor t where
---   placeD :: (a -> Maybe a) -> t a -> Maybe (t a)
-
-
--- data RoomBased k num a = RoomBased
---   { identify :: a -> k
---   , score :: a -> num
---   , scores :: Map.Map k num
---   , roomThings :: Map.Map (k,num) a
---   }
-
--- updateRoomBased :: (RoomBased k num a) -> a -> (RoomBased k num a)
--- updateRoomBased r newThing = RoomBased {
---   identify = ident,
---   score = sc,
---   scores = newScore,
---   roomThings = (remove oldScores  -- TODO
---
---   where
---     ident = identify r
---     sc = score r
---     newId = ident newThing
---     newScore = sc newThing
---     oldScores = scores r
-
-
--- instance Distributor (RoomBased k num a) where
---   placeD f d = case found of
---                 Nothing -> Nothing
---                 Just newThing -> Just (updateRoomBased newThing)
---     where
---       found = Map.foldr (findFirstGood f) Nothing roomThings d
-
-
