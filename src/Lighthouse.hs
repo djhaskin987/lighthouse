@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
 module Lighthouse (
   Node (Node),
   ResourceManager (ResourceManager),
@@ -20,7 +19,7 @@ module Lighthouse (
   resources
                   ) where
 
-import           Data.Aeson       hiding (json)
+import           Data.Aeson
 import           Data.Sequence ((><), (<|), (|>), Seq(Empty, (:<|)))
 import           Data.Text        (Text, pack)
 import           GHC.Generics
@@ -67,9 +66,9 @@ instance (ToJSON i,
 
 class Distributor d where
   place :: (Ord i, Ord w, Ord r, Ord n, Num n)
-        => ((Node i w r n) -> (Maybe (Node i w r n)))
+        => (Node i w r n -> Maybe (Node i w r n))
         -> d i w r n
-        -> Maybe ((d i w r n), (Node i w r n))
+        -> Maybe (d i w r n, Node i w r n)
 
 newtype Prioritized i w r n =
   Prioritized { prioritizedThings :: Sequence.Seq (Node i w r n)
@@ -85,16 +84,16 @@ instance Distributor Prioritized where
       Nothing -> case place f (Prioritized xs) of
                    Nothing -> Nothing
                    Just (Prioritized ys, found) ->
-                     Just $ (Prioritized (x <| ys), found)
-      Just y -> Just $ (Prioritized (y <| xs), y)
+                     Just (Prioritized (x <| ys), found)
+      Just y -> Just (Prioritized (y <| xs), y)
 
 fromListPR :: (Ord i, Ord w, Ord r, Num n)
-           => [(Node i w r n)]
+           => [Node i w r n]
            -> Prioritized i w r n
 fromListPR nodeList = Prioritized $ Sequence.fromList nodeList
 
 findFirstGoodIdx  :: (a -> Maybe a) -> a -> (Int,Maybe a) -> (Int,Maybe a)
-findFirstGoodIdx f a (c1,c2) = case (f a) of
+findFirstGoodIdx f a (c1,c2) = case f a of
                         Nothing -> (c1+1,c2)
                         Just y -> (0, Just y)
 
@@ -106,21 +105,21 @@ instance Distributor RoundRobin where
   place f (RoundRobin things) =
     case found of
       Nothing -> Nothing
-      Just newThing -> Just $ (RoundRobin (right ><
-                                           (Sequence.singleton newThing) ><
+      Just newThing -> Just (RoundRobin (right ><
+                                           Sequence.singleton newThing ><
                                            left), newThing)
     where
-      left = Sequence.take (index) things
+      left = Sequence.take index things
       right = Sequence.drop (index + 1) things
       (index, found) = Fold.foldr (findFirstGoodIdx f) (0, Nothing) things
 
 fromListRR :: (Ord i, Ord w, Ord r, Num n)
-           => [(Node i w r n)]
+           => [Node i w r n]
            -> RoundRobin i w r n
 fromListRR nodeList = RoundRobin $ Sequence.fromList nodeList
 
 findFirstGood  :: (a -> Maybe a) -> a -> Maybe a -> Maybe a
-findFirstGood f a c = case (f a) of
+findFirstGood f a c = case f a of
                         Nothing -> c
                         Just y -> Just y
 
@@ -131,7 +130,7 @@ score :: (Ord k, Num n)
 score rubric parts
   | Map.size scored < Map.size rubric = Nothing
   | otherwise =
-    Just (Map.foldr (+) (fromInteger 0) scored)
+    Just (Map.foldr (+) 0 scored)
   where
     scored = Map.intersectionWith (*) rubric parts
 
@@ -146,18 +145,18 @@ emptyRoomBased = RoomBased Map.empty Map.empty Map.empty
 
 fromListRB :: (Ord i, Ord w, Ord r, Ord n, Num n)
            => Map.Map r n
-           -> [(Node i w r n)]
+           -> [Node i w r n]
            -> Maybe (RoomBased i w r n)
 fromListRB rubric nodeList = do
   (nodeScores, nodes) <-
-    (Monad.foldM
+    Monad.foldM
       (\(c1,c2) v -> do
         nodeScore <- score rubric (resources v)
-        return ((Map.insert (nodeId v) nodeScore c1),
-                (Map.insert (nodeScore, (nodeId v)) v c2)))
+        return (Map.insert (nodeId v) nodeScore c1,
+                Map.insert (nodeScore, nodeId v) v c2))
       (Map.empty :: Map.Map i n,
             Map.empty :: Map.Map (n, i) (Node i w r n))
-      nodeList)
+      nodeList
   return $ RoomBased rubric nodeScores nodes
 
 instance Distributor RoomBased where
@@ -165,31 +164,31 @@ instance Distributor RoomBased where
     found <- Fold.foldr (findFirstGood f) Nothing th
     newScore <- score ru (resources found)
     oldScore <- Map.lookup (nodeId found) sc
-    let id = (nodeId found) in
-      return $ ((RoomBased
+    let id = nodeId found in
+      return (RoomBased
                   ru
                   (Map.insert id newScore sc)
                   (Map.insert (newScore, id) found
-                    (Map.delete (oldScore, id) th))), found)
+                    (Map.delete (oldScore, id) th)), found)
 
 data ResourceManager d i w =
   ResourceManager { mgrNodes :: d
-                  , mgrAssignments :: (Map.Map w i)
+                  , mgrAssignments :: Map.Map w i
                   } deriving (Eq, Show)
 
 
 canAttachWorkload :: (Ord w, Ord r, Ord n, Num n)
-                  => (Workload w r n)
-                  -> (Node i w r n)
+                  => Workload w r n
+                  -> Node i w r n
                   -> Bool
 canAttachWorkload load node =
-  case (attachWorkload load node) of
+  case attachWorkload load node of
     Nothing -> False
     Just _ -> True
 
 attachWorkload :: (Ord w, Ord r, Ord n, Num n)
-               => (Workload w r n)
-               -> (Node i w r n)
+               => Workload w r n
+               -> Node i w r n
                -> Maybe (Node i w r n)
 attachWorkload load (Node id have attached)
   | Map.size used < Map.size need = Nothing
@@ -220,8 +219,8 @@ attachWorkload load (Node id have attached)
       used
 
 assignWorkload :: (Ord i, Ord w, Ord r, Ord n, Num n, Distributor d)
-               => (ResourceManager (d i w r n) i w)
-               -> (Workload w r n)
+               => ResourceManager (d i w r n) i w
+               -> Workload w r n
                -> Maybe (ResourceManager (d i w r n) i w)
 assignWorkload (ResourceManager nodes assignments) load = do
   (newNodes, foundNode) <- place (attachWorkload load) nodes
@@ -232,15 +231,14 @@ assignWorkload (ResourceManager nodes assignments) load = do
               (nodeId foundNode)
               assignments
 
-sortNodes :: [(Node i w r n)] -> [(Node i w r n)]
+sortNodes :: [Node i w r n] -> [Node i w r n]
 sortNodes nodes = nodes
 
-sortWorkloads :: [(Workload w r n)] -> [(Workload w r n)]
+sortWorkloads :: [Workload w r n] -> [Workload w r n]
 sortWorkloads workloads = workloads
 
 assignWorkloads :: (Ord i, Ord w, Ord r, Ord n, Num n, Distributor d)
-                => (ResourceManager (d i w r n) i w)
-                -> [(Workload w r n)]
+                => ResourceManager (d i w r n) i w
+                -> [Workload w r n]
                 -> Maybe (ResourceManager (d i w r n) i w)
-assignWorkloads mgr loads =
-  Monad.foldM assignWorkload mgr loads
+assignWorkloads = Monad.foldM assignWorkload

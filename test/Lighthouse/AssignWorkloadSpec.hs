@@ -25,25 +25,25 @@ spec = do
           Lighthouse.assignWorkload normalRBResMgr sillyReq `shouldBe` Nothing
     describe "standard case" $ do
       it "will do the normal thing PR" $
-          (Lighthouse.assignWorkload normalPRResMgr req)
+          Lighthouse.assignWorkload normalPRResMgr req
           `shouldBe` resultPRResMgr
       it "will do the normal thing RR" $
-          (Lighthouse.assignWorkload normalRRResMgr req)
+          Lighthouse.assignWorkload normalRRResMgr req
           `shouldBe` resultRRResMgr
       it "will do the normal thing RB" $
-          (Lighthouse.assignWorkload normalRBResMgr req)
+          Lighthouse.assignWorkload normalRBResMgr req
           `shouldBe` resultRBResMgr
   where
     emptyPRMgr = Lighthouse.ResourceManager
       (fromListPR ([] :: [TestNode]))
       Map.empty
     emptyRRMgr = Lighthouse.ResourceManager
-      (Lighthouse.fromListRR ([] :: [(TestNode)]))
+      (Lighthouse.fromListRR ([] :: [TestNode]))
       Map.empty
     emptyRBMgr = Lighthouse.ResourceManager
-      ((begoneMaybe (Lighthouse.fromListRB
+      (begoneMaybe (Lighthouse.fromListRB
                     (Map.fromList [("cpu", -1), ("mem", -1)])
-                    ([] :: [(TestNode)]))) :: RoomBased Text Text Text Int)
+                    ([] :: [TestNode])) :: RoomBased Text Text Text Int)
       Map.empty
     normalPRResMgr = Lighthouse.ResourceManager
       (fromListPR nodes)

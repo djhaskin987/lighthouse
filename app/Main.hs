@@ -44,7 +44,7 @@ instance FromJSON AssignWorkloadsResults
 
 assignmentsGiven :: AssignWorkloadsArgs -> Maybe (Map.Map Text Text)
 assignmentsGiven rpcArgs =
-  case (assignmentStrategy rpcArgs) of
+  case assignmentStrategy rpcArgs of
     Prioritized -> do
       prTarget <- assignWorkloads prResMgr loads
       return $ mgrAssignments prTarget
@@ -52,22 +52,22 @@ assignmentsGiven rpcArgs =
       rrTarget <- assignWorkloads rrResMgr loads
       return $ mgrAssignments rrTarget
   where
-    loads = (workloadsArgs rpcArgs)
-    nodes = (nodesArgs rpcArgs)
-    prResMgr = (ResourceManager (fromListPR nodes) Map.empty)
-    rrResMgr = (ResourceManager (fromListRR nodes) Map.empty)
+    loads = workloadsArgs rpcArgs
+    nodes = nodesArgs rpcArgs
+    prResMgr = ResourceManager (fromListPR nodes) Map.empty
+    rrResMgr = ResourceManager (fromListRR nodes) Map.empty
 
 app :: Api
-app = do
+app =
   post "assign-workloads" $ do
     rpcArgs <- jsonBody' :: ApiAction AssignWorkloadsArgs
-    case (assignmentsGiven rpcArgs) of
-      Nothing -> json $
+    case assignmentsGiven rpcArgs of
+      Nothing -> json
         AssignWorkloadsResults {
           successful = False,
           assignments = Map.empty
         }
-      Just asgn -> json $
+      Just asgn -> json
         AssignWorkloadsResults {
           successful = True,
           assignments = asgn

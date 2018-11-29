@@ -86,11 +86,11 @@ spec = do
       (Map.fromList [("first","firstN"),
                      ("second","secondN")])
     firstNodeRBAsc = firstNode
-    secondNodeRBAsc = (Lighthouse.Node
+    secondNodeRBAsc = Lighthouse.Node
       "secondN"
       (Map.fromList [("cpu", 4), ("mem", 5)])
       (Map.fromList [("first", firstReq),
-                     ("second", secondReq)]))
+                     ("second", secondReq)])
     resultRBAscMgr = Just $ Lighthouse.ResourceManager
       (begoneMaybe (Lighthouse.fromListRB
                       rubricRBAsc
