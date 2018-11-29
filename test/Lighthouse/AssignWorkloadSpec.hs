@@ -10,6 +10,9 @@ spec = do
     describe "empty nodes" $
       it "is supposed to return empty list" $
           Lighthouse.assignWorkload emptyResMgr req `shouldBe` Nothing
+    describe "empty nodes with RR" $
+      it "is supposed to return empty list" $
+          Lighthouse.assignWorkload emptyRRMgr req `shouldBe` Nothing
     describe "silly case" $
       it "is supposed to return nothing" $
           Lighthouse.assignWorkload normalResMgr sillyReq `shouldBe` Nothing
@@ -45,3 +48,6 @@ spec = do
     req = Lighthouse.Workload
       "good"
       (Map.fromList [("cpu", 38), ("mem", 24)])
+    emptyRRMgr = Lighthouse.ResourceManager
+      (Lighthouse.fromListRR ([] :: [(Node Text Text Text Int)]))
+      Map.empty

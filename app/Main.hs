@@ -18,12 +18,6 @@ main = do
   spockCfg <- defaultSpockCfg () PCNoDatabase ()
   runSpock 8087 (spock spockCfg app)
 
-instance FromJSON (Workload Text Text Float)
-instance   ToJSON (Workload Text Text Float)
-
-instance FromJSON (Node Text Text Text Float)
-instance   ToJSON (Node Text Text Text Float)
-
 data AssignmentStrategy = Prioritized | RoundRobin deriving (Show, Eq, Generic)
 
 instance ToJSON AssignmentStrategy
@@ -40,13 +34,13 @@ instance FromJSON AssignWorkloadsArgs
 
 data AssignWorkloadsResults =
   AssignWorkloadsResults { successful :: Bool
-                         , assignments :: Map.Map WorkloadID NodeID
+                         , assignments :: Map.Map Text Text
                          } deriving (Show, Eq, Generic)
 
 instance   ToJSON AssignWorkloadsResults
 instance FromJSON AssignWorkloadsResults
 
-assignmentsGiven :: AssignWorkloadsArgs -> Maybe (Map.Map WorkloadID NodeID)
+assignmentsGiven :: AssignWorkloadsArgs -> Maybe (Map.Map Text Text)
 assignmentsGiven rpcArgs = 
   case (assignmentStrategy rpcArgs) of
     Prioritized -> do

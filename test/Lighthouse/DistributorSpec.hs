@@ -14,7 +14,7 @@ spec = do
             `shouldBe` resultPrioritizedMgr
     describe "round robin nodes" $
       it "is supposed to return nothing" $
-          Lighthouse.assignWorkloads startRRMgr reqs 
+          Lighthouse.assignWorkloads startRRMgr reqs
              `shouldBe` resultRRMgr
   where
     firstNode = Lighthouse.Node
