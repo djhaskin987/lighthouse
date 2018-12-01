@@ -77,7 +77,7 @@ spec = do
       Map.empty
     firstNodeModified = Lighthouse.Node
       "first"
-      (Map.fromList [("cpu", 02), ("mem", 56)])
+      (Map.fromList [("cpu", 2), ("mem", 56)])
       (Map.fromList [("good", req)])
     nodes = [firstNode, secondNode]
     sillyReq = Lighthouse.Workload

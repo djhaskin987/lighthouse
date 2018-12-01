@@ -20,7 +20,8 @@ main = do
 
 data AssignmentStrategy =
     Prioritized
-  | RoundRobin deriving (Show, Eq, Generic)
+  | RoundRobin
+  | RoomBased deriving (Show, Eq, Generic)
 
 instance ToJSON AssignmentStrategy
 instance FromJSON AssignmentStrategy
@@ -29,10 +30,29 @@ data AssignWorkloadsArgs =
   AssignWorkloadsArgs { assignmentStrategy :: AssignmentStrategy
                       , nodesArgs :: [Node Text Text Text Float]
                       , workloadsArgs :: [Workload Text Text Float]
+                      , rubricArgs :: Map.Map Text Float
                       } deriving (Show, Eq, Generic)
 
-instance ToJSON AssignWorkloadsArgs
-instance FromJSON AssignWorkloadsArgs
+instance ToJSON AssignWorkloadsArgs where
+  toJSON (AssignWorkloadsArgs strat ns ls rub) =
+    object [
+      "strategy" .= strat,
+      "nodes" .= ns,
+      "workloads" .= ls,
+      "rubric" .= rub
+    ]
+
+instance FromJSON AssignWorkloadsArgs where
+  parseJSON = withObject "params" $ \o -> do
+    aStrat <- o .:  "strategy"
+    ns <- o .: "nodes"
+    wls <- o .: "workloads"
+    rub <- o .:? "rubric" .!= (Map.empty :: Map.Map Text Float)
+    return $ AssignWorkloadsArgs
+      aStrat
+      ns
+      wls
+      rub
 
 data AssignWorkloadsResults =
   AssignWorkloadsResults { successful :: Bool
@@ -43,19 +63,22 @@ instance   ToJSON AssignWorkloadsResults
 instance FromJSON AssignWorkloadsResults
 
 assignmentsGiven :: AssignWorkloadsArgs -> Maybe (Map.Map Text Text)
-assignmentsGiven rpcArgs =
-  case assignmentStrategy rpcArgs of
+assignmentsGiven (AssignWorkloadsArgs strat ns ls rub) =
+  case strat of
     Prioritized -> do
-      prTarget <- assignWorkloads prResMgr loads
+      prTarget <- assignWorkloads prResMgr ls
       return $ mgrAssignments prTarget
     RoundRobin -> do
-      rrTarget <- assignWorkloads rrResMgr loads
+      rrTarget <- assignWorkloads rrResMgr ls
       return $ mgrAssignments rrTarget
+    RoomBased -> do
+      rbDistributor <- fromListRB rub ns
+      let rbResMgr = ResourceManager rbDistributor Map.empty in do
+        rbTarget <- assignWorkloads rbResMgr ls
+        return $ mgrAssignments rbTarget
   where
-    loads = workloadsArgs rpcArgs
-    nodes = nodesArgs rpcArgs
-    prResMgr = ResourceManager (fromListPR nodes) Map.empty
-    rrResMgr = ResourceManager (fromListRR nodes) Map.empty
+    prResMgr = ResourceManager (fromListPR ns) Map.empty
+    rrResMgr = ResourceManager (fromListRR ns) Map.empty
 
 app :: Api
 app =

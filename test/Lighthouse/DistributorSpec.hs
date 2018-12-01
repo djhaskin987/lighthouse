@@ -24,7 +24,6 @@ spec = do
       it "should assign all to first node when sorted desc" $
           Lighthouse.assignWorkloads startRBDescMgr reqs
              `shouldBe` resultRBDescMgr
-
   where
     firstNode = Lighthouse.Node
       "firstN"
