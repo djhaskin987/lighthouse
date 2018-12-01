@@ -32,9 +32,8 @@ import qualified Data.Sequence as Sequence
 data Workload w r n =
   Workload { loadId :: w
            , requirements :: Map.Map r n
---           , tolerations :: Set.Set r
+           , tolerations :: Set.Set r
            } deriving (Show, Eq, Generic)
-
 
 data Node i w r n = Node { nodeId :: i
                  , resources :: Map.Map r n
@@ -42,10 +41,21 @@ data Node i w r n = Node { nodeId :: i
                  } deriving (Show, Eq, Generic)
 
 instance (FromJSON w, FromJSONKey r, Ord r, FromJSON n)
-  => FromJSON (Workload w r n)
+  => FromJSON (Workload w r n) where
+  parseJSON = withObject "Workload" $ \o -> do
+    wid <- o .: "id"
+    reqs <- o .: "requirements"
+    tols <- o .:? "tolerations" .!= ([] :: [r])
+    return $ Workload wid reqs (Set.fromList tols)
 
 instance (ToJSON w, ToJSONKey r, Ord r, ToJSON n)
-  => ToJSON (Workload w r n)
+  => ToJSON (Workload w r n) where
+  toJSON (Workload wid reqs tols) =
+    object [
+      "id" .= wid
+      "requirements" .= reqs,
+      "tolerations" .= Set.toList tols
+    ]
 
 instance (FromJSON i,
           FromJSON w,
@@ -54,7 +64,12 @@ instance (FromJSON i,
           FromJSONKey r,
           Ord r,
           FromJSON n)
-  => FromJSON (Node i w r n)
+  => FromJSON (Node i w r n) where
+  parseJSON = withObject "Node" $ \o -> do
+    lid <- o .: "id"
+    res <- o .: "resources"
+    lds <- o .:? "workloads" .!= (Map.empty :: Map.Map w (Workload w r n))
+    return $ Node lid res lds
 
 instance (ToJSON i,
           ToJSON w,
@@ -63,7 +78,13 @@ instance (ToJSON i,
           ToJSONKey r,
           Ord r,
           ToJSON n)
-  => ToJSON (Node i w r n)
+  => ToJSON (Node i w r n) where
+  toJSON (Node lid res lds) =
+    object [
+      "id" .= lid,
+      "resources" .= res,
+      "workloads" .= lds
+    ]
 
 class Distributor d where
   place :: (Ord i, Ord w, Ord r, Ord n, Num n)
