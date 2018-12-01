@@ -23,6 +23,17 @@ spec = do
           Lighthouse.assignWorkload normalRRResMgr sillyReq `shouldBe` Nothing
       it "is supposed to return nothing RB" $
           Lighthouse.assignWorkload normalRBResMgr sillyReq `shouldBe` Nothing
+    describe "off case" $ do
+      it "is supposed to return nothing PR" $
+          Lighthouse.assignWorkload normalPRResMgr wrongReq `shouldBe` Nothing
+      it "is supposed to return nothing RR" $
+          Lighthouse.assignWorkload normalRRResMgr wrongReq `shouldBe` Nothing
+      it "is supposed to return nothing RB" $
+          Lighthouse.assignWorkload normalRBResMgr wrongReq `shouldBe` Nothing
+    describe "vacuous case" $
+      it "is supposed to get assigned" $
+          Lighthouse.assignWorkload normalPRResMgr vacuousReq
+          `shouldBe` resultVacuous
     describe "standard case" $ do
       it "will do the normal thing PR" $
           Lighthouse.assignWorkload normalPRResMgr req
@@ -67,6 +78,9 @@ spec = do
                     (Map.fromList [("cpu", -1), ("mem", -1)])
                     [firstNodeModified, secondNode]))
       (Map.fromList [("good","first")])
+    resultVacuous = Just $ Lighthouse.ResourceManager
+      (fromListPR [firstNodeVacuous, secondNode])
+      (Map.fromList [("vacuous", "first")])
     firstNode = Lighthouse.Node
       "first"
       (Map.fromList [("cpu", 40), ("mem", 80)])
@@ -79,10 +93,20 @@ spec = do
       "first"
       (Map.fromList [("cpu", 2), ("mem", 56)])
       (Map.fromList [("good", req)])
+    firstNodeVacuous = Lighthouse.Node
+      "first"
+      (Map.fromList [("cpu", 40), ("mem", 80)])
+      (Map.fromList [("vacuous", vacuousReq)])
     nodes = [firstNode, secondNode]
     sillyReq = Lighthouse.Workload
       "bad"
       (Map.fromList [("cpu", 88), ("mem", 164)])
+    wrongReq = Lighthouse.Workload
+      "off"
+      (Map.fromList [("disk", 1)])
+    vacuousReq = Lighthouse.Workload
+      "vacuous"
+      (Map.fromList ([] :: [(Text,Int)]))
     req = Lighthouse.Workload
       "good"
       (Map.fromList [("cpu", 38), ("mem", 24)])

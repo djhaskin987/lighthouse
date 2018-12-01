@@ -32,6 +32,7 @@ import qualified Data.Sequence as Sequence
 data Workload w r n =
   Workload { loadId :: w
            , requirements :: Map.Map r n
+--           , tolerations :: Set.Set r
            } deriving (Show, Eq, Generic)
 
 
@@ -191,7 +192,7 @@ attachWorkload :: (Ord w, Ord r, Ord n, Num n)
                -> Node i w r n
                -> Maybe (Node i w r n)
 attachWorkload load (Node id have attached)
-  | Map.size used < Map.size need = Nothing
+  | Map.size used > Map.size have = Nothing
   | not isAllPositive = Nothing
   | otherwise =
     Just (Node
@@ -201,7 +202,7 @@ attachWorkload load (Node id have attached)
   where
     -- Subtract what is required from what is available, and only show the
     -- difference for the keys that exist in both
-    used = Map.intersectionWith
+    used = Map.unionWith
                   (-)
                   have
                   need
