@@ -235,11 +235,13 @@ attachWorkload load (Node id have attached)
   where
     -- Subtract what is required from what is available, and only show the
     -- difference for the keys that exist in both
-    used = Map.unionWith
+    need = requirements load
+    tols = tolerations load
+    offered = Map.unionWith
                   (-)
                   have
                   need
-    need = requirements load
+    used = Map.withoutKeys offered tols
     -- Check to make sure all that there were in fact enough resources
     -- to meet the requirements' demands
     isAllPositive = Map.foldr
