@@ -12,7 +12,7 @@ spec = do
     describe "prioritized nodes" $
       it "should assign all to the first node" $
           Lighthouse.assignWorkloads startPrioritizedMgr reqs
-            `shouldBe` resultPrioritizedMgr
+             `shouldBe` resultPrioritizedMgr
     describe "round robin nodes" $
       it "should assign first to first, second to second" $
           Lighthouse.assignWorkloads startRRMgr reqs
@@ -55,9 +55,9 @@ spec = do
           nodes))
       Map.empty
     reqs = [firstReq, secondReq]
-    firstReq = Lighthouse.Workload "first" $
+    firstReq = Lighthouse.makeSimpleWorkload "first" $
       Map.fromList [("cpu", 13), ("mem", 11)]
-    secondReq = Lighthouse.Workload "second" $
+    secondReq = Lighthouse.makeSimpleWorkload "second" $
       Map.fromList [("cpu", 18), ("mem", 24)]
     firstNodeAll = Lighthouse.Node
       "firstN"

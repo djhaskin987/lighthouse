@@ -98,15 +98,15 @@ spec = do
       (Map.fromList [("cpu", 40), ("mem", 80)])
       (Map.fromList [("vacuous", vacuousReq)])
     nodes = [firstNode, secondNode]
-    sillyReq = Lighthouse.Workload
+    sillyReq = Lighthouse.makeSimpleWorkload
       "bad"
       (Map.fromList [("cpu", 88), ("mem", 164)])
-    wrongReq = Lighthouse.Workload
+    wrongReq = Lighthouse.makeSimpleWorkload
       "off"
       (Map.fromList [("disk", 1)])
-    vacuousReq = Lighthouse.Workload
+    vacuousReq = Lighthouse.makeSimpleWorkload
       "vacuous"
       (Map.fromList ([] :: [(Text,Int)]))
-    req = Lighthouse.Workload
+    req = Lighthouse.makeSimpleWorkload
       "good"
       (Map.fromList [("cpu", 38), ("mem", 24)])

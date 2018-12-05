@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lighthouse (
   Node (Node),
   ResourceManager (ResourceManager),
@@ -6,6 +8,7 @@ module Lighthouse (
   RoomBased,
   assignWorkload,
   assignWorkloads,
+  makeSimpleWorkload,
   mgrNodes,
   mgrAssignments,
   emptyRoomBased,
@@ -35,12 +38,15 @@ data Workload w r n =
            , tolerations :: Set.Set r
            } deriving (Show, Eq, Generic)
 
+makeSimpleWorkload :: w -> Map.Map r n -> Workload w r n
+makeSimpleWorkload id reqs = Workload id reqs (Set.empty :: Set.Set r)
+
 data Node i w r n = Node { nodeId :: i
                  , resources :: Map.Map r n
                  , assignedWorkloads :: Map.Map w (Workload w r n)
                  } deriving (Show, Eq, Generic)
 
-instance (FromJSON w, FromJSONKey r, Ord r, FromJSON n)
+instance (FromJSON w, FromJSON r, FromJSONKey r, Ord r, FromJSON n)
   => FromJSON (Workload w r n) where
   parseJSON = withObject "Workload" $ \o -> do
     wid <- o .: "id"
@@ -48,19 +54,24 @@ instance (FromJSON w, FromJSONKey r, Ord r, FromJSON n)
     tols <- o .:? "tolerations" .!= ([] :: [r])
     return $ Workload wid reqs (Set.fromList tols)
 
-instance (ToJSON w, ToJSONKey r, Ord r, ToJSON n)
+instance (ToJSON w,
+          ToJSON r,
+          ToJSONKey r,
+          Ord r,
+          ToJSON n)
   => ToJSON (Workload w r n) where
   toJSON (Workload wid reqs tols) =
     object [
-      "id" .= wid
+      "id" .= wid,
       "requirements" .= reqs,
-      "tolerations" .= Set.toList tols
+      "tolerations" .= (Set.toList tols)
     ]
 
 instance (FromJSON i,
           FromJSON w,
           FromJSONKey w,
           Ord w,
+          FromJSON r,
           FromJSONKey r,
           Ord r,
           FromJSON n)
@@ -75,6 +86,7 @@ instance (ToJSON i,
           ToJSON w,
           ToJSONKey w,
           Ord w,
+          ToJSON r,
           ToJSONKey r,
           Ord r,
           ToJSON n)
