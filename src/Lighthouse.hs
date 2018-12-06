@@ -168,6 +168,16 @@ score rubric parts
   where
     scored = Map.intersectionWith (*) rubric parts
 
+scorePartial :: (Ord k, Num n)
+      => Map.Map k n
+      -> Map.Map k n
+      -> n
+scorePartial rubric parts
+  | Map.size scored < Map.size rubric = error "Insufficient rubric"
+  | otherwise = Map.foldr (+) 0 scored
+  where
+    scored = Map.intersectionWith (*) rubric parts
+
 data RoomBased i w r n =
   RoomBased { roomRubric :: Map.Map r n
             , roomScores :: Map.Map i n
@@ -237,17 +247,16 @@ attachWorkload load (Node id have attached)
     -- difference for the keys that exist in both
     need = requirements load
     tols = tolerations load
-    offered = Map.unionWith
+    used = Map.unionWith
                   (-)
                   have
                   need
-    used = Map.withoutKeys offered tols
     -- Check to make sure all that there were in fact enough resources
     -- to meet the requirements' demands
     isAllPositive = Map.foldr
       (\v c -> v >= 0 && c)
       True
-      used
+      (Map.withoutKeys used tols)
     -- Update values in `have` with values in `used`
     leftovers = Map.unionWith
       (flip const)
