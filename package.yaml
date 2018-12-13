@@ -26,6 +26,7 @@ dependencies:
 - aeson
 - Spock
 - text
+- sort
 
 library:
   source-dirs: src

@@ -19,11 +19,13 @@ module Lighthouse (
   nodeId,
   place,
   requirements,
-  resources
+  resources,
+  sortWorkloads
                   ) where
 
 import           Data.Aeson
 import           Data.Sequence ((><), (<|), (|>), Seq(Empty, (:<|)))
+import           Data.Sort (sortOn)
 import           Data.Text        (Text, pack)
 import           GHC.Generics
 import qualified Control.Monad as Monad
@@ -279,8 +281,22 @@ assignWorkload (ResourceManager nodes assignments) load = do
 sortNodes :: [Node i w r n] -> [Node i w r n]
 sortNodes nodes = nodes
 
-sortWorkloads :: [Workload w r n] -> [Workload w r n]
-sortWorkloads workloads = workloads
+-- score :: (Ord k, Num n)
+--       => Map.Map k n
+--       -> Map.Map k n
+--       -> Maybe n
+-- score rubric parts
+sortWorkloads :: (Ord w, Ord r, Ord n, Num n)
+              => [Workload w r n]
+              -> Map.Map r n
+              -> [Workload w r n]
+sortWorkloads workloads rubric = sortOn
+  (\a ->
+    case score (requirements a) rubric of
+      Nothing -> (fromInteger 0)
+      Just x -> (negate x)
+    )
+  workloads
 
 assignWorkloads :: (Ord i, Ord w, Ord r, Ord n, Num n, Distributor d)
                 => ResourceManager (d i w r n) i w

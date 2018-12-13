@@ -21,7 +21,8 @@ main = do
 data AssignmentStrategy =
     Prioritized
   | RoundRobin
-  | RoomBased deriving (Show, Eq, Generic)
+  | BinPack deriving (Show, Eq, Generic)
+
 
 instance ToJSON AssignmentStrategy
 instance FromJSON AssignmentStrategy
@@ -44,15 +45,11 @@ instance ToJSON AssignWorkloadsArgs where
 
 instance FromJSON AssignWorkloadsArgs where
   parseJSON = withObject "params" $ \o -> do
-    aStrat <- o .:  "strategy"
+    aStrat <- o .:? "strategy" .!= Prioritized
     ns <- o .: "nodes"
     wls <- o .: "workloads"
     rub <- o .:? "rubric" .!= (Map.empty :: Map.Map Text Float)
-    return $ AssignWorkloadsArgs
-      aStrat
-      ns
-      wls
-      rub
+    return $ AssignWorkloadsArgs aStrat ns wls rub
 
 data AssignWorkloadsResults =
   AssignWorkloadsResults { successful :: Bool
@@ -71,10 +68,10 @@ assignmentsGiven (AssignWorkloadsArgs strat ns ls rub) =
     RoundRobin -> do
       rrTarget <- assignWorkloads rrResMgr ls
       return $ mgrAssignments rrTarget
-    RoomBased -> do
+    BinPack -> do
       rbDistributor <- fromListRB rub ns
       let rbResMgr = ResourceManager rbDistributor Map.empty in do
-        rbTarget <- assignWorkloads rbResMgr ls
+        rbTarget <- assignWorkloads rbResMgr (sortWorkloads ls rub)
         return $ mgrAssignments rbTarget
   where
     prResMgr = ResourceManager (fromListPR ns) Map.empty
