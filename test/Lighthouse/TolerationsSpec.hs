@@ -4,6 +4,7 @@ module Lighthouse.TolerationsSpec (spec) where
 import           Data.Text        (Text, pack)
 import           Lighthouse
 import           Test.Hspec
+import           Lighthouse.TestUtilities
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 
@@ -33,10 +34,10 @@ spec = do
     contributeNode = Lighthouse.Node
       "contributeN"
       (Map.fromList [("cpu", 10)])
-      Map.empty
+      (Map.empty :: Map.Map Text TestWorkload)
     contributeReq = Lighthouse.makeSimpleWorkload
       "contribute"
-      (Map.fromList [("cpu", -10)])
+      (Map.fromList [("cpu", -10)]) :: TestWorkload
     contributeResultNode = Lighthouse.Node
       "contributeN"
       (Map.fromList [("cpu", 20)])
@@ -50,35 +51,37 @@ spec = do
     polluteNode = Lighthouse.Node
       "polluteN"
       (Map.fromList [("cpu", 10)])
-      Map.empty
-    polluteReq = Lighthouse.Workload
-      "pollute"
-      (Map.fromList [("cpu", 20)])
-      (Set.fromList [("cpu")])
+      (Map.empty :: Map.Map Text TestWorkload)
+    polluteReq = defaultWorkload {
+        loadId = "pollute",
+        requirements = Map.fromList [("cpu", 20)],
+        tolerations = Set.fromList [("cpu")]
+        }
     polluteResultNode = Lighthouse.Node
       "polluteN"
       (Map.fromList [("cpu", -10)])
-      (Map.fromList [("pollute", polluteReq)])
+      (Map.fromList [("pollute", polluteReq)]) :: TestNode
     polluteMgr = Lighthouse.ResourceManager
       (Lighthouse.fromListPR [polluteNode])
-      Map.empty
+      (Map.empty :: Map.Map Text Text)
     polluteResult = Just $ Lighthouse.ResourceManager
       (Lighthouse.fromListPR [polluteResultNode])
       (Map.fromList [("pollute", "polluteN")])
     firstNode = Lighthouse.Node
       "firstN"
       (Map.fromList [("cpu", 40), ("mem", 80), ("master-node", minBound::Int)])
-      Map.empty
+      (Map.empty :: Map.Map Text TestWorkload)
     semaphoreNode = Lighthouse.Node
       "semaphoreN"
       (Map.fromList [("cpu", 10), ("mem", 10), ("semaphore", -3)])
-      Map.empty
-    semaphoreMgr = Lighthouse.ResourceManager
-      (Lighthouse.fromListPR [semaphoreNode])
-      Map.empty
+      (Map.empty :: Map.Map Text TestWorkload)
     semaphoreReq = Lighthouse.makeSimpleWorkload
       "semaphore"
       (Map.fromList [("cpu", 10), ("mem", 10), ("semaphore", -3)])
+        :: TestWorkload
+    semaphoreMgr = Lighthouse.ResourceManager
+      (Lighthouse.fromListPR [semaphoreNode])
+      (Map.empty :: Map.Map Text Text)
     semaphoreResultNode = Lighthouse.Node
       "semaphoreN"
       (Map.fromList [("cpu", 0), ("mem", 0), ("semaphore", 0)])
@@ -97,8 +100,9 @@ spec = do
       (Lighthouse.fromListPR [firstNodeScheduled])
       (Map.fromList [("first","firstN")])
     counterExampleReq = Lighthouse.makeSimpleWorkload "first" $
-      Map.fromList [("cpu", 13), ("mem", 11)]
-    basicExampleReq = Lighthouse.Workload
-      "first"
-      (Map.fromList [("cpu", 13), ("mem", 11)])
-      (Set.fromList ["master-node"])
+      Map.fromList [("cpu", 13), ("mem", 11)] :: TestWorkload
+    basicExampleReq = defaultWorkload {
+      loadId = "first",
+      requirements = (Map.fromList [("cpu", 13), ("mem", 11)]),
+      tolerations = (Set.fromList ["master-node"])
+                                      }

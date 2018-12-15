@@ -7,6 +7,7 @@ import           Lighthouse.TestUtilities
 import           Test.Hspec
 import qualified Data.Map.Strict as Map
 
+
 spec :: Spec
 spec = do
     describe "prioritized nodes" $
@@ -28,25 +29,25 @@ spec = do
     firstNode = Lighthouse.Node
       "firstN"
       (Map.fromList [("cpu", 40), ("mem", 80)])
-      Map.empty
+      (Map.empty :: Map.Map Text TestWorkload)
     secondNode = Lighthouse.Node
       "secondN"
       (Map.fromList [("cpu", 35), ("mem", 40)])
-      Map.empty
+      (Map.empty :: Map.Map Text TestWorkload)
     nodes = [firstNode, secondNode]
     startPrioritizedMgr = Lighthouse.ResourceManager
       (Lighthouse.fromListPR nodes)
-      Map.empty
+      (Map.empty :: Map.Map Text Text)
     startRRMgr = Lighthouse.ResourceManager
       (Lighthouse.fromListRR nodes)
-      Map.empty
+      (Map.empty :: Map.Map Text Text)
     rubricRBAsc = Map.fromList [("cpu", 1), ("mem", 1)]
     startRBAscMgr = Lighthouse.ResourceManager
       (begoneMaybe
         (Lighthouse.fromListRB
           rubricRBAsc
           nodes))
-      Map.empty
+      (Map.empty :: Map.Map Text Text)
     rubricRBDesc = Map.fromList [("cpu", -1), ("mem", -1)]
     startRBDescMgr = Lighthouse.ResourceManager
       (begoneMaybe
@@ -56,9 +57,9 @@ spec = do
       Map.empty
     reqs = [firstReq, secondReq]
     firstReq = Lighthouse.makeSimpleWorkload "first" $
-      Map.fromList [("cpu", 13), ("mem", 11)]
+      Map.fromList [("cpu", 13), ("mem", 11)] :: TestWorkload
     secondReq = Lighthouse.makeSimpleWorkload "second" $
-      Map.fromList [("cpu", 18), ("mem", 24)]
+      Map.fromList [("cpu", 18), ("mem", 24)] :: TestWorkload
     firstNodeAll = Lighthouse.Node
       "firstN"
       (Map.fromList [("cpu", 9), ("mem", 45)])

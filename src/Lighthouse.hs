@@ -8,19 +8,22 @@ module Lighthouse (
   RoomBased,
   assignWorkload,
   assignWorkloads,
-  makeSimpleWorkload,
-  mgrNodes,
-  mgrAssignments,
+  assignedWorkloads,
+  aversionGroups,
   emptyRoomBased,
   fromListPR,
-  fromListRR,
   fromListRB,
+  fromListRR,
   loadId,
+  makeSimpleWorkload,
+  mgrAssignments,
+  mgrNodes,
   nodeId,
   place,
   requirements,
   resources,
-  sortWorkloads
+  sortWorkloads,
+  tolerations
                   ) where
 
 import           Data.Aeson
