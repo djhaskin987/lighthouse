@@ -34,39 +34,55 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Sequence as Sequence
 
-data Workload w r n =
+data Workload w r n g =
   Workload { loadId :: w
            , requirements :: Map.Map r n
            , tolerations :: Set.Set r
+           , aversionGroups :: Set.Set g
            } deriving (Show, Eq, Generic)
 
-makeSimpleWorkload :: w -> Map.Map r n -> Workload w r n
-makeSimpleWorkload id reqs = Workload id reqs (Set.empty :: Set.Set r)
+makeSimpleWorkload :: w -> Map.Map r n -> Workload w r n g
+makeSimpleWorkload id reqs =
+  Workload
+    id
+    reqs
+    (Set.empty :: Set.Set r)
+    (Set.empty :: Set.Set g)
 
-data Node i w r n = Node { nodeId :: i
+data Node i w r n g = Node { nodeId :: i
                  , resources :: Map.Map r n
-                 , assignedWorkloads :: Map.Map w (Workload w r n)
+                 , assignedWorkloads :: Map.Map w (Workload w r n g)
                  } deriving (Show, Eq, Generic)
 
-instance (FromJSON w, FromJSON r, FromJSONKey r, Ord r, FromJSON n)
-  => FromJSON (Workload w r n) where
+instance (FromJSON w,
+          FromJSON r,
+          FromJSONKey r,
+          Ord r,
+          FromJSON n,
+          FromJSON g,
+          FromJSONKey g,
+          Ord g)
+  => FromJSON (Workload w r n g) where
   parseJSON = withObject "Workload" $ \o -> do
     wid <- o .: "id"
     reqs <- o .: "requirements"
     tols <- o .:? "tolerations" .!= ([] :: [r])
-    return $ Workload wid reqs (Set.fromList tols)
+    avrs <- o .:? "aversion_groups" .!= ([] :: [g])
+    return $ Workload wid reqs (Set.fromList tols) (Set.fromList avrs)
 
 instance (ToJSON w,
           ToJSON r,
           ToJSONKey r,
           Ord r,
-          ToJSON n)
-  => ToJSON (Workload w r n) where
-  toJSON (Workload wid reqs tols) =
+          ToJSON n,
+          ToJSON g)
+  => ToJSON (Workload w r n g) where
+  toJSON (Workload wid reqs tols avrs) =
     object [
       "id" .= wid,
       "requirements" .= reqs,
-      "tolerations" .= (Set.toList tols)
+      "tolerations" .= (Set.toList tols),
+      "aversion_groups" .= (Set.toList avrs)
     ]
 
 instance (FromJSON i,
@@ -76,12 +92,17 @@ instance (FromJSON i,
           FromJSON r,
           FromJSONKey r,
           Ord r,
-          FromJSON n)
-  => FromJSON (Node i w r n) where
+          FromJSON n,
+          Num n,
+          Ord n,
+          FromJSON g,
+          FromJSONKey g,
+          Ord g)
+  => FromJSON (Node i w r n g) where
   parseJSON = withObject "Node" $ \o -> do
     lid <- o .: "id"
     res <- o .: "resources"
-    lds <- o .:? "workloads" .!= (Map.empty :: Map.Map w (Workload w r n))
+    lds <- o .:? "workloads" .!= (Map.empty :: Map.Map w (Workload w r n g))
     return $ Node lid res lds
 
 instance (ToJSON i,
@@ -91,23 +112,24 @@ instance (ToJSON i,
           ToJSON r,
           ToJSONKey r,
           Ord r,
-          ToJSON n)
-  => ToJSON (Node i w r n) where
+          ToJSON n,
+          ToJSONKey g,
+          ToJSON g)
+  => ToJSON (Node i w r n g) where
   toJSON (Node lid res lds) =
     object [
       "id" .= lid,
       "resources" .= res,
       "workloads" .= lds
     ]
-
 class Distributor d where
-  place :: (Ord i, Ord w, Ord r, Ord n, Num n)
-        => (Node i w r n -> Maybe (Node i w r n))
-        -> d i w r n
-        -> Maybe (d i w r n, Node i w r n)
+  place :: (Ord i, Ord w, Ord r, Ord n, Num n, Ord g)
+        => (Node i w r n g -> Maybe (Node i w r n g))
+        -> d i w r n g
+        -> Maybe (d i w r n g, Node i w r n g)
 
-newtype Prioritized i w r n =
-  Prioritized { prioritizedThings :: Sequence.Seq (Node i w r n)
+newtype Prioritized i w r n g =
+  Prioritized { prioritizedThings :: Sequence.Seq (Node i w r n g)
               } deriving (Show, Eq)
 
 instance Distributor Prioritized where
@@ -123,9 +145,9 @@ instance Distributor Prioritized where
                      Just (Prioritized (x <| ys), found)
       Just y -> Just (Prioritized (y <| xs), y)
 
-fromListPR :: (Ord i, Ord w, Ord r, Num n)
-           => [Node i w r n]
-           -> Prioritized i w r n
+fromListPR :: (Ord i, Ord w, Ord r, Num n, Ord g)
+           => [Node i w r n g]
+           -> Prioritized i w r n g
 fromListPR nodeList = Prioritized $ Sequence.fromList nodeList
 
 findFirstGoodIdx  :: (a -> Maybe a) -> a -> (Int,Maybe a) -> (Int,Maybe a)
@@ -133,8 +155,8 @@ findFirstGoodIdx f a (c1,c2) = case f a of
                         Nothing -> (c1+1,c2)
                         Just y -> (0, Just y)
 
-newtype RoundRobin i w r n =
-  RoundRobin { robinThings :: Sequence.Seq (Node i w r n)
+newtype RoundRobin i w r n g =
+  RoundRobin { robinThings :: Sequence.Seq (Node i w r n g)
              } deriving (Show, Eq)
 
 instance Distributor RoundRobin where
@@ -149,9 +171,9 @@ instance Distributor RoundRobin where
       right = Sequence.drop (index + 1) things
       (index, found) = Fold.foldr (findFirstGoodIdx f) (0, Nothing) things
 
-fromListRR :: (Ord i, Ord w, Ord r, Num n)
-           => [Node i w r n]
-           -> RoundRobin i w r n
+fromListRR :: (Ord i, Ord w, Ord r, Ord n, Num n, Ord g)
+           => [Node i w r n g]
+           -> RoundRobin i w r n g
 fromListRR nodeList = RoundRobin $ Sequence.fromList nodeList
 
 findFirstGood  :: (a -> Maybe a) -> a -> Maybe a -> Maybe a
@@ -180,19 +202,19 @@ scorePartial rubric parts
   where
     scored = Map.intersectionWith (*) rubric parts
 
-data RoomBased i w r n =
+data RoomBased i w r n g =
   RoomBased { roomRubric :: Map.Map r n
             , roomScores :: Map.Map i n
-            , roomThings :: Map.Map (n, i) (Node i w r n)
+            , roomThings :: Map.Map (n, i) (Node i w r n g)
             } deriving (Eq, Show)
 
-emptyRoomBased :: RoomBased i w r n
+emptyRoomBased :: RoomBased i w r n g
 emptyRoomBased = RoomBased Map.empty Map.empty Map.empty
 
-fromListRB :: (Ord i, Ord w, Ord r, Ord n, Num n)
+fromListRB :: (Ord i, Ord w, Ord r, Ord n, Num n, Ord g)
            => Map.Map r n
-           -> [Node i w r n]
-           -> Maybe (RoomBased i w r n)
+           -> [Node i w r n g]
+           -> Maybe (RoomBased i w r n g)
 fromListRB rubric nodeList = do
   (nodeScores, nodes) <-
     Monad.foldM
@@ -201,7 +223,7 @@ fromListRB rubric nodeList = do
         return (Map.insert (nodeId v) nodeScore c1,
                 Map.insert (nodeScore, nodeId v) v c2))
       (Map.empty :: Map.Map i n,
-            Map.empty :: Map.Map (n, i) (Node i w r n))
+            Map.empty :: Map.Map (n, i) (Node i w r n g))
       nodeList
   return $ RoomBased rubric nodeScores nodes
 
@@ -222,20 +244,37 @@ data ResourceManager d i w =
                   , mgrAssignments :: Map.Map w i
                   } deriving (Eq, Show)
 
+checkAversions :: (Ord w, Ord r, Ord n, Num n, Ord g)
+               => Set.Set g
+               -> Workload w r n g
+               -> Bool
+               -> Bool
+checkAversions refGroups (Workload _ _ _ loadGroups) cumul =
+  ((Set.size commonGroups) > 0) || cumul
+  where
+    commonGroups = Set.intersection refGroups loadGroups
 
-canAttachWorkload :: (Ord w, Ord r, Ord n, Num n)
-                  => Workload w r n
-                  -> Node i w r n
+hasAverseLoads :: (Ord w, Ord r, Ord n, Num n, Ord g)
+               => Workload w r n g
+               -> Node i w r n g
+               -> Bool
+hasAverseLoads (Workload _ _ _ refGroup)
+               (Node _ _ nloads) =
+  Map.foldr (checkAversions refGroup) False nloads
+
+canAttachWorkload :: (Ord w, Ord r, Ord n, Num n, Ord g)
+                  => Workload w r n g
+                  -> Node i w r n g
                   -> Bool
 canAttachWorkload load node =
   case attachWorkload load node of
     Nothing -> False
     Just _ -> True
 
-attachWorkload :: (Ord w, Ord r, Ord n, Num n)
-               => Workload w r n
-               -> Node i w r n
-               -> Maybe (Node i w r n)
+attachWorkload :: (Ord w, Ord r, Ord n, Num n, Ord g)
+               => Workload w r n g
+               -> Node i w r n g
+               -> Maybe (Node i w r n g)
 attachWorkload load (Node id have attached)
   | Map.size used > Map.size have = Nothing
   | not isAllPositive = Nothing
@@ -265,31 +304,62 @@ attachWorkload load (Node id have attached)
       have
       used
 
-assignWorkload :: (Ord i, Ord w, Ord r, Ord n, Num n, Distributor d)
-               => ResourceManager (d i w r n) i w
-               -> Workload w r n
-               -> Maybe (ResourceManager (d i w r n) i w)
-assignWorkload (ResourceManager nodes assignments) load = do
-  (newNodes, foundNode) <- place (attachWorkload load) nodes
-  return $ ResourceManager
-            newNodes $
-            Map.insert
-              (loadId load)
-              (nodeId foundNode)
-              assignments
+attachIfNotAverse :: (Ord w, Ord r, Ord n, Num n, Ord g)
+                  => Workload w r n g
+                  -> Node i w r n g
+                  -> Maybe (Node i w r n g)
+attachIfNotAverse load node =
+  if hasAverseLoads load node
+     then Nothing
+    else attachWorkload load node
 
-sortNodes :: [Node i w r n] -> [Node i w r n]
-sortNodes nodes = nodes
+updateRM :: (Ord i, Ord w, Ord r, Ord n, Num n, Ord g, Distributor d)
+         => Map.Map w i
+         -> w
+         -> d i w r n g
+         -> Node i w r n g
+         -> ResourceManager (d i w r n g) i w
+updateRM
+  assignments
+  lid
+  newNodes
+  foundNode =
+    ResourceManager
+          newNodes $
+          Map.insert
+            lid
+            (nodeId foundNode)
+            assignments
 
--- score :: (Ord k, Num n)
---       => Map.Map k n
---       -> Map.Map k n
---       -> Maybe n
--- score rubric parts
-sortWorkloads :: (Ord w, Ord r, Ord n, Num n)
-              => [Workload w r n]
+assignWorkload :: (Ord i, Ord w, Ord r, Ord n, Num n, Ord g, Distributor d)
+               => ResourceManager (d i w r n g) i w
+               -> Workload w r n g
+               -> Maybe (ResourceManager (d i w r n g) i w)
+assignWorkload (ResourceManager nodes assignments) load =
+  case place (attachIfNotAverse load) nodes of
+    Nothing -> do
+      (newNodes, foundNode) <- place (attachWorkload load) nodes
+      return $
+        updateRM
+          assignments
+          (loadId load)
+          newNodes
+          foundNode
+    Just (newNodes, foundNode) -> return $
+      updateRM
+        assignments
+        (loadId load)
+        newNodes
+        foundNode
+
+-- Sort each workload based on its score against a particular
+-- rubric in descending order, biggest workloads first.
+-- This function is intended to be used in the bin packing
+-- algorithm.
+sortWorkloads :: (Ord w, Ord r, Ord n, Num n, Ord g)
+              => [Workload w r n g]
               -> Map.Map r n
-              -> [Workload w r n]
+              -> [Workload w r n g]
 sortWorkloads workloads rubric = sortOn
   (\a ->
     case score (requirements a) rubric of
@@ -298,8 +368,8 @@ sortWorkloads workloads rubric = sortOn
     )
   workloads
 
-assignWorkloads :: (Ord i, Ord w, Ord r, Ord n, Num n, Distributor d)
-                => ResourceManager (d i w r n) i w
-                -> [Workload w r n]
-                -> Maybe (ResourceManager (d i w r n) i w)
+assignWorkloads :: (Ord i, Ord w, Ord r, Ord n, Num n, Ord g, Distributor d)
+                => ResourceManager (d i w r n g) i w
+                -> [Workload w r n g]
+                -> Maybe (ResourceManager (d i w r n g) i w)
 assignWorkloads = Monad.foldM assignWorkload

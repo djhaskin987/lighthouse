@@ -29,8 +29,8 @@ instance FromJSON AssignmentStrategy
 
 data AssignWorkloadsArgs =
   AssignWorkloadsArgs { assignmentStrategy :: AssignmentStrategy
-                      , nodesArgs :: [Node Text Text Text Float]
-                      , workloadsArgs :: [Workload Text Text Float]
+                      , nodesArgs :: [Node Text Text Text Float Text]
+                      , workloadsArgs :: [Workload Text Text Float Text]
                       , rubricArgs :: Map.Map Text Float
                       } deriving (Show, Eq, Generic)
 
