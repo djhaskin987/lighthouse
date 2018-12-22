@@ -26,10 +26,12 @@ dependencies:
 - aeson
 - Spock
 - text
+- wai
 - sort
 
 library:
-  source-dirs: src
+  source-dirs:
+    - src
 
 executables:
   lighthouse-exe:
@@ -41,6 +43,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - lighthouse
+    - wai
 
 tests:
   lighthouse-test:
@@ -61,7 +64,9 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - lighthouse
     - Spock >= 0.12
     - base >= 4.7 && < 5
+    - wai
     - hspec
     - hspec-wai

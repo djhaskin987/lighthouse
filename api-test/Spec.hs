@@ -1,7 +1,7 @@
 {-#LANGUAGE OverloadedStrings #-}
-module Spec where
+module Main where
 
-import Main (app)
+import LighthouseApp (app)
 
 import Test.Hspec
 import Test.Hspec.Wai
@@ -23,7 +23,7 @@ spec =
         \       \"id\": \"node-1\", \
         \       \"resources\": { \"cpu\": 2.0 } \
         \     } \
-        \   ],
+        \   ], \
         \   \"workloads\": [ \
         \     { \
         \       \"id\": \"workload-1\", \
