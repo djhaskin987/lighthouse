@@ -84,8 +84,8 @@ instance (ToJSON w,
     object [
       "id" .= wid,
       "requirements" .= reqs,
-      "tolerations" .= (Set.toList tols),
-      "aversion_groups" .= (Set.toList avrs)
+      "tolerations" .= Set.toList tols,
+      "aversion_groups" .= Set.toList avrs
     ]
 
 instance (FromJSON i,
@@ -253,7 +253,7 @@ checkAversions :: (Ord w, Ord r, Ord n, Num n, Ord g)
                -> Bool
                -> Bool
 checkAversions refGroups (Workload _ _ _ loadGroups) cumul =
-  ((Set.size commonGroups) > 0) || cumul
+  (Set.size commonGroups > 0) || cumul
   where
     commonGroups = Set.intersection refGroups loadGroups
 
@@ -366,8 +366,8 @@ sortWorkloads :: (Ord w, Ord r, Ord n, Num n, Ord g)
 sortWorkloads workloads rubric = sortOn
   (\a ->
     case score (requirements a) rubric of
-      Nothing -> (fromInteger 0)
-      Just x -> (negate x)
+      Nothing -> 0
+      Just x -> negate x
     )
   workloads
 

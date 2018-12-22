@@ -55,7 +55,7 @@ spec = do
     polluteReq = defaultWorkload {
         loadId = "pollute",
         requirements = Map.fromList [("cpu", 20)],
-        tolerations = Set.fromList [("cpu")]
+        tolerations = Set.fromList ["cpu"]
         }
     polluteResultNode = Lighthouse.Node
       "polluteN"
@@ -103,6 +103,6 @@ spec = do
       Map.fromList [("cpu", 13), ("mem", 11)] :: TestWorkload
     basicExampleReq = defaultWorkload {
       loadId = "first",
-      requirements = (Map.fromList [("cpu", 13), ("mem", 11)]),
-      tolerations = (Set.fromList ["master-node"])
+      requirements = Map.fromList [("cpu", 13), ("mem", 11)],
+      tolerations = Set.fromList ["master-node"]
                                       }

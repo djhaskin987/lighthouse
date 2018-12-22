@@ -31,22 +31,6 @@ spec = do
 --       it "should try not to schedule if all aversions are present" do
 --         Lighthouse.assignWorkload startMgr counterExampleReq
 --           `shouldBe` Nothing
---     describe "toleration counter example" $
---       it "should be unable to schedule a workload" $
---         Lighthouse.assignWorkload startMgr counterExampleReq
---           `shouldBe` Nothing
---     describe "basic toleration case" $
---       it "should be able to schedule a workload" $
---         Lighthouse.assignWorkload startMgr basicExampleReq
---           `shouldBe` endMgr
---     describe "not using tolerations per se" $
---       it "should cancel out a present negative value" $
---         Lighthouse.assignWorkload semaphoreMgr semaphoreReq
---           `shouldBe` semaphoreResult
---     describe "tolerate self-pollution" $
---       it "should tolerate the stuff it causes, but still cause it" $
---         Lighthouse.assignWorkload polluteMgr polluteReq
---           `shouldBe` polluteResult
   where
     singleAvrsReq = defaultWorkload {
       loadId = "singleAvrs",
@@ -78,7 +62,7 @@ spec = do
     vacantFirstNode = defaultNode {
       nodeId = "vacant1",
       resources = Map.fromList [("cpu", 1), ("mem", 1)],
-      assignedWorkloads = (Map.empty :: Map.Map Text TestWorkload)
+      assignedWorkloads = Map.empty :: Map.Map Text TestWorkload
         }
     onlyPonyResultNode = defaultNode {
       nodeId = "single",
@@ -112,7 +96,7 @@ spec = do
     vacantResultNode = defaultNode {
       nodeId = "vacant1",
       resources = Map.fromList [("cpu", 0), ("mem", 0)],
-      assignedWorkloads = (Map.fromList [("singleAvrs", singleAvrsReq)])
+      assignedWorkloads = Map.fromList [("singleAvrs", singleAvrsReq)]
                                    }
     vacantResult = Just $ Lighthouse.ResourceManager
       (Lighthouse.fromListPR [secondAvrsNode, vacantResultNode])
@@ -141,7 +125,7 @@ spec = do
     polluteReq = defaultWorkload {
         loadId = "pollute",
         requirements = Map.fromList [("cpu", 20)],
-        tolerations = Set.fromList [("cpu")]
+        tolerations = Set.fromList ["cpu"]
         }
     polluteResultNode = Lighthouse.Node
       "polluteN"
@@ -189,6 +173,6 @@ spec = do
       Map.fromList [("cpu", 13), ("mem", 11)] :: TestWorkload
     basicExampleReq = defaultWorkload {
       loadId = "first",
-      requirements = (Map.fromList [("cpu", 13), ("mem", 11)]),
-      tolerations = (Set.fromList ["master-node"])
+      requirements = Map.fromList [("cpu", 13), ("mem", 11)],
+      tolerations = Set.fromList ["master-node"]
                                       }

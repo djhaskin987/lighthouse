@@ -8,5 +8,5 @@ main = hspec spec
 spec :: Spec
 spec =
   describe "the universe" $
-  it "behaves the way we expect it to" $ do
+  it "behaves the way we expect it to" $
     1 `shouldBe` 1
