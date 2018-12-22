@@ -1,3 +1,7 @@
+# Sphinx
+docs/_build
+
+# stack, haskell
 .stack-work/
 lighthouse.cabal
 

@@ -9,7 +9,8 @@ category:            DevOps
 synopsis:            Generic workload scheduler
 extra-source-files:
 - README.md
-- ChangeLog.md
+- ChangeLog.rst
+- AUTHORS.rst
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
