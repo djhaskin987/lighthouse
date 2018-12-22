@@ -14,10 +14,10 @@ have upon which to schedule them:
 ```bash
 
 curl -X POST -d '{
-    "nodes": [{"id": "firstnode", "resources": {"cpu": 10.0, "mem": 8.0}},
+    "nodes": [{"id": "node-1", "resources": {"cpu": 1.0, "mem": 8.0}},
               {"id": "secondnode", "resources": {"cpu": 5.0, "mem": 4.0}}],
     "workloads": [{"id": "firstreq", "requirements": {"cpu": 5.0}}],
-    "strategy": "prioritized"
+    "strategy": "Prioritized"
 }' localhost:8087/assign-workloads
 # => { "assignments": [{"firstreq", "firstnode"}]}
 
