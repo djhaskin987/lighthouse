@@ -30,13 +30,8 @@ spec =
         \       \"requirements\": { \"cpu\": 1.6 } \
         \     } \
         \   ] \
-        \ }" `shouldRespondWith` "\
-        \ { \
-        \   \"successful\": true, \
-        \   \"assignments\": { \
-        \     \"workload-1\": \"node-1\" \
-        \   } \
-        \ }"
+        \ }" `shouldRespondWith`
+        "{\"successful\":true,\"assignments\":{\"workload-1\":\"node-1\"}}"
 --     describe "GET /hello/:name" $ do
 --       it "returns hello to spock" $
 --         get "/hello/spock" `shouldRespondWith` "Hello spock"
