@@ -45,7 +45,8 @@ module Lighthouse (
   requirements,
   resources,
   sortWorkloads,
-  tolerations
+  tolerations,
+  tryAssignWorkloads
                   ) where
 
 import           Data.Aeson
@@ -65,9 +66,14 @@ import qualified Data.Sequence as Sequence
 -- The purpose for each of these is covered more in depth in the documentation
 -- of the function 'attachWorkload'.
 data Workload w r n g =
-  Workload { loadId :: w
+  Workload {
+           -- |Returns the id associated with the workload.
+             loadId :: w
+           -- |Returns the requirements associated with the workload.
            , requirements :: Map.Map r n
+           -- |Returns the set of tolerations associated with the workload.
            , tolerations :: Set.Set r
+           -- |Returns the aversion groups associated with the workload.
            , aversionGroups :: Set.Set g
            } deriving (Show, Eq, Generic)
 
@@ -84,10 +90,15 @@ makeSimpleWorkload id reqs =
 -- Nodes have an ID, a list of resources and a quantity associated with each
 -- resource. It also keeps track of which workloads have been previously
 -- assigned to it.
-data Node i w r n g = Node { nodeId :: i
-                 , resources :: Map.Map r n
-                 , assignedWorkloads :: Map.Map w (Workload w r n g)
-                 } deriving (Show, Eq, Generic)
+data Node i w r n g =
+  Node {
+         -- |Returns the id associated with the node.
+         nodeId :: i
+         -- |Returns the resources associated with the node.
+       , resources :: Map.Map r n
+         -- |Returns the assigned workloads associated with the node.
+       , assignedWorkloads :: Map.Map w (Workload w r n g)
+       } deriving (Show, Eq, Generic)
 
 -- |The Distributor class represents a collection of nodes, together
 -- with a strategy for how to schedule particular workloads onto
@@ -446,3 +457,23 @@ assignWorkloads :: (Ord i, Ord w, Ord r, Ord n, Num n, Ord g, Distributor d)
                 -> [Workload w r n g]
                 -> Maybe (ResourceManager (d i w r n g) i w)
 assignWorkloads = Monad.foldM assignWorkload
+
+-- |/TRY/ to assign a list of workloads to a ResourceManager.
+-- This means that if a workload could not be assigned,
+-- the function moves on to the next workload.
+-- This way a workload that could not otherwise be scheduled
+-- doesn't ruin the prospects for the rest of the loads.
+-- Returns the sequence of workloads which couldn't get
+-- scheduled and the resulting resource manager.
+tryAssignWorkloads :: (Ord i, Ord w, Ord r, Ord n, Num n, Ord g, Distributor d)
+                   => ResourceManager (d i w r n g) i w
+                   -> [Workload w r n g]
+                   -> (Sequence.Seq (Workload w r n g),
+                       ResourceManager (d i w r n g) i w)
+tryAssignWorkloads rm lds =
+  foldr (\v (bad, mgr) ->
+          case assignWorkload mgr v of
+            Just mgr' -> (bad, mgr')
+            Nothing -> (bad |> v, mgr))
+        (Empty, rm)
+        lds

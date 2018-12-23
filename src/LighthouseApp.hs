@@ -18,6 +18,7 @@ This module contains all the API/serialization code.
 module LighthouseApp (app) where
 
 import           Data.Aeson       hiding (json)
+import           Data.Foldable    (toList)
 import           Data.Monoid      ((<>))
 import           Data.Text        (Text, pack)
 import           GHC.Generics
@@ -146,6 +147,24 @@ data AssignWorkloadsResults =
 instance   ToJSON AssignWorkloadsResults
 instance FromJSON AssignWorkloadsResults
 
+data TryAssignWorkloadsResults =
+  TryAssignWorkloadsResults { tryFailures :: [Text]
+                            , tryAssignments :: Map.Map Text Text
+                            } deriving (Show, Eq, Generic)
+
+instance ToJSON TryAssignWorkloadsResults where
+  toJSON (TryAssignWorkloadsResults fails asgns) =
+    object [
+      "failures" .= fails,
+      "assignments" .= asgns
+    ]
+
+instance FromJSON TryAssignWorkloadsResults where
+  parseJSON = withObject "try-params" $ \o -> do
+    asgns <- o .: "failures"
+    fails <- o .: "assignments"
+    return $ TryAssignWorkloadsResults fails asgns
+
 assignmentsGiven :: AssignWorkloadsArgs -> Maybe (Map.Map Text Text)
 assignmentsGiven (AssignWorkloadsArgs strat ns ls rub) =
   case strat of
@@ -164,8 +183,45 @@ assignmentsGiven (AssignWorkloadsArgs strat ns ls rub) =
     prResMgr = ResourceManager (fromListPR ns) Map.empty
     rrResMgr = ResourceManager (fromListRR ns) Map.empty
 
+assignmentsAttempted :: AssignWorkloadsArgs -> TryAssignWorkloadsResults
+assignmentsAttempted (AssignWorkloadsArgs strat ns ls rub) =
+        case strat of
+          Prioritized ->
+            let (failures, target) =
+              (tryAssignWorkloads
+                (ResourceManager
+                  (fromListPR ns)
+                  Map.empty)
+                ls) in
+              TryAssignWorkloadsResults
+                (toList $ fmap loadId failures)
+                (mgrAssignments target)
+          RoundRobin ->
+            let (failures, target) =
+              (tryAssignWorkloads
+                (ResourceManager
+                  (fromListRR ns)
+                  Map.empty)
+                ls) in
+              TryAssignWorkloadsResults
+                (toList $ fmap loadId failures)
+                (mgrAssignments target)
+          BinPack ->
+            let (failures, target) =
+              (tryAssignWorkloads
+                (ResourceManager
+                  (fromListRB rub ns)
+                  Map.empty)
+                ls) in
+              TryAssignWorkloadsResults
+                (toList $ fmap loadId failures)
+                (mgrAssignments target)
+
 routes :: Api
-routes =
+routes = do
+  post "try-assign-workloads" $ do
+    rpcArgs <- jsonBody' :: ApiAction AssignWorkloadsArgs
+    json $ assignmentsAttempted rpcArgs
   post "assign-workloads" $ do
     rpcArgs <- jsonBody' :: ApiAction AssignWorkloadsArgs
     case assignmentsGiven rpcArgs of
