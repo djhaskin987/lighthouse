@@ -1,5 +1,20 @@
 ﻿{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-|
+Module      : LighthouseApp
+Description : Workload scheduler
+Copyright   : (c) The Lighthouse Authors, 2018
+                  See the AUTHORS.md file.
+License     : BSD
+Maintainer  : djhaskin987@gmail.com
+Stability   : experimental
+
+Lighthouse is a workload scheduling application.
+
+Documentation can be found [here](https://lighthouse-scheduler.readthedocs.io/en/latest/).
+
+This module contains all the API/serialization code.
+-}
 module LighthouseApp (app) where
 
 import           Data.Aeson       hiding (json)

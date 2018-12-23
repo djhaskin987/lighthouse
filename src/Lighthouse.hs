@@ -2,14 +2,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-|
 Module      : Lighthouse
-Description : Short description
+Description : Workload scheduler
 Copyright   : (c) The Lighthouse Authors, 2018
                   See the AUTHORS.md file.
 License     : BSD
 Maintainer  : djhaskin987@gmail.com
 Stability   : experimental
 
-Lighthouse is a workload scheduling library.
+Lighthouse is a workload scheduling application.
+
+Documentation can be found [here](https://lighthouse-scheduler.readthedocs.io/en/latest/).
 A scheduler as a library, you say? That's kinda weird.
 Well, I'm just that type of developer.
 

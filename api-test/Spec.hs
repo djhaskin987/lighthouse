@@ -7,8 +7,6 @@ import Test.Hspec
 import Test.Hspec.Wai
 import Web.Spock (spockAsApp)
 
-import Test.Hspec
-
 main :: IO ()
 main = hspec spec
 spec :: Spec
@@ -49,7 +47,7 @@ spec =
         \   ] \
         \ }" `shouldRespondWith`
         "{\"successful\":false,\"assignments\":{}}"
-    describe "POST /assign-workloads: docs" $ do
+    describe "POST /assign-workloads: docs" $
       it "is the first example in the docs" $
         post "/assign-workloads" "\
         \ { \
