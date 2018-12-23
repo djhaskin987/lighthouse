@@ -128,7 +128,8 @@ the simplest, but it is not the best. ``BinPack`` is, in general, recommended.
 
 The following example will be referred to when discussing each of the
 placement strategies below::
-    curl \k
+
+    curl \
         -X POST \
         --data-binary '
     {
@@ -257,16 +258,186 @@ In this example, all workloads were assigned to ``node-3``, since ``node-3``
 had the least room in it going into scheduling, since it had the least disk
 space.
 
+Placement Enforcement
+---------------------
+
+At the time of placement of a workload onto a node, the requirements are
+subtracted from the node's resources so as to keep track of what nodes still
+have room left for more assignments. In particular, all attributes associated
+with the *node* must register with a quantity at or above zero in order for the
+assignment to succeed at *assignment time*.
+
+This allows for some interesting possibilities for how to enforce where
+workloads can be assigned in your cluster of nodes.
+
 Node Tagging
-------------
+++++++++++++
+
+Sometimes it is desirable to mark a particular node as specifically dedicated
+to a particular type of workload. When this is desired, it is simply a matter
+of adding a resource to a node with zero as the quantity::
+
+    ...
+    "nodes": [
+        {
+            "id: "node1",
+            "resources": {
+               "dedicated": 0.0,
+               ...
+            }
+        }
+    ]
+
+Then, simply place a similar attribute in the requirements dictionary
+of the workloads that should be run on the dedicated nodes::
+
+    ...
+    "workloads": [
+        {
+            "id": "workload1",
+            "requirements": {
+                "dedicated": 0.0,
+                ...
+            }
+        }
+    ]
+
+This works because all requirements listed for a workload must be present
+on the node and none may be allowed to be below zero, but zero is okay.
 
 Deficits and Tolerations
-------------------------
+++++++++++++++++++++++++
 
 This concept is similar to Kubernetes' `Taints and Tolerations`_ idea, but also
 has nuances to it that make it more flexible.
 
+The idea is to mark a particular set of nodes as unavailable for workloads
+unless those workloads specifically opt into being run on those nodes.
+
+We do this in Lighthouse using Defecits and Tolerations.
+
+It is perfectly fine to list negative values for resources at call time on a
+node; however, as has been previously explained, if there are any resources in
+a node with negative quantity at *assignment time* of a workload, the workload
+is not able to be attached.
+
+Negative resources can be overcome by a resource in one of two ways.
+
+First, for negative resource of *finite* this can be overcome by simply listing
+a negative requirement. That way, when one is subtracted from the other, the
+result will be zero::
+
+    ...
+    "nodes": [
+        {
+            "id: "node1",
+            "resources": {
+               "flies": -5.0,
+               ...
+            }
+        }
+    ],
+    "workloads": [
+        {
+            "id": "workload1",
+            "requirements": {
+                "flies": -5.0,
+                ...
+            }
+        }
+    ]
+
+This may be used to list "shortcomings" of a node that precludes it from having
+workloads scheduled on it unless at least one workload has a sufficient
+tolerance to the shortcoming.
+
+Second, we list a node up front at call time with a resource that has infinite
+negative value::
+
+    ...
+    "nodes": [
+        {
+            "id: "node1",
+            "resources": {
+               "spiders": -inf,
+               ...
+            }
+        }
+    ]
+
+In this scenario, workloads will not be able to overcome the shortcoming no
+matter how finitely resilient the workload is. However, we can list a
+``toleration`` on the workload.
+
+A ``toleration`` in a workload tells Lighthouse to ignore whatever value exists
+for a resource in a node at assignment time of the workload. So, in order to
+schedule a workload on the node listed above, we can simply add ``"spiders"``
+to the toleration list for the workload::
+
+    ...
+    "workloads": [
+        {
+            "id": "workload1",
+            "requirements": {
+                ...
+            },
+            "tolerations": [
+                "spiders",
+                ...
+            ]
+        }
+    ]
+
 Aversion Groups
 ---------------
+
+Aversion Groups correspond to anti-affinity groups in other scheduling schemes.
+
+Put simply, any aversion group listed for a workload causes that workload
+to "prefer" to be scheduled on a node without any other workloads listed
+as "belonging" to the same aversion group, like this:::
+
+    ...
+    "nodes": [
+        {
+            "id: "node1",
+            "resources": {
+               ...
+            }
+        },
+        {
+            "id: "node2",
+            "resources": {
+               ...
+            }
+        }
+
+    ],
+    "workloads": [
+        {
+            "id": "workload1",
+            "requirements": {
+                ...
+            },
+            "aversion_groups": [
+                "io-bound",
+                ...
+            ]
+        },
+        {
+            "id": "workload2",
+            "requirements": {
+                ...
+            },
+            "aversion_groups": [
+                "io-bound",
+                ...
+            ]
+        }
+    ]
+
+In the above example, both ``workload1`` and ``workload2`` will try really hard
+to be scheduled on different nodes, becuase they both list the ``io-bound``
+aversion group in their aversion groups list.
 
 .. _Taints and Tolerations: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
