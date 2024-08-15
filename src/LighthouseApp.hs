@@ -1,12 +1,12 @@
 ﻿{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-|
-Module      : Halyard
-Description : Foist the colors
-Copyright   : (c) The Halyard Authors, 2024
+Module      : LighthouseApp
+Description : Workload scheduler
+Copyright   : (c) The Lighthouse Authors, 2018
                   See the AUTHORS.md file.
 License     : BSD
-Maintainer  : dan@djhaskin.com
+Maintainer  : djhaskin987@gmail.com
 Stability   : experimental
 
 Lighthouse is a workload scheduling application.
@@ -15,7 +15,7 @@ Documentation can be found [here](https://lighthouse-scheduler.readthedocs.io/en
 
 This module contains all the API/serialization code.
 -}
-module Halyard (app) where
+module LighthouseApp (app) where
 
 import           Data.Aeson       hiding (json)
 import           Data.Foldable    (toList)
@@ -28,9 +28,6 @@ import           Web.Spock.Config
 import Network.Wai (Middleware)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-
-
-
 
 instance (FromJSON w,
           FromJSON r,
