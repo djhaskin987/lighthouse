@@ -1,66 +1,51 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-|
-Module      : Lighthouse
+Module      : Halyard
 Description : Workload scheduler
-Copyright   : (c) The Lighthouse Authors, 2018
+Copyright   : (c) The Halyard Authors, 2024
                   See the AUTHORS.md file.
 License     : BSD
 Maintainer  : djhaskin987@gmail.com
 Stability   : experimental
 
-Lighthouse is a workload scheduling application.
-
-Documentation can be found [here](https://lighthouse-scheduler.readthedocs.io/en/latest/).
-A scheduler as a library, you say? That's kinda weird.
-Well, I'm just that type of developer.
-
-It is intended to be very generic. It has a notion of nodes and workloads,
-but while the use case of scheduling processes onto computers is kept in
-mind, it is not the only option. It can just as easily be used to schedule
-sacks of pears onto the backs of willing farm laborers.
-
-It leads the ships (workloads) to safe harbor (nodes).
+Halyard is a workload scheduling application.
 -}
 
-module Lighthouse (
-  Node (Node),
-  Workload (Workload),
-  ResourceManager (ResourceManager),
-  RoomBased,
-  assignWorkload,
-  assignWorkloads,
-  assignedWorkloads,
-  aversionGroups,
-  emptyRoomBased,
-  fromListPR,
-  fromListRB,
-  fromListRR,
-  loadId,
-  makeSimpleWorkload,
-  mgrAssignments,
-  mgrNodes,
-  nodeId,
-  place,
-  requirements,
-  resources,
-  sortWorkloads,
-  tolerations,
-  tryAssignWorkloads
+module Halyard (
                   ) where
 
-import           Data.Aeson
-import           Data.Sequence ((><), (<|), (|>), Seq(Empty, (:<|)))
-import           Data.Sort (sortOn)
-import           Data.Text        (Text, pack)
-import           GHC.Generics
-import qualified Control.Monad as Monad
-import qualified Data.Foldable as Fold
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
-import qualified Data.Sequence as Sequence
+class JoinableTree t where
+  unjoin :: () -> (t, t)
+  join :: t -> t
 
--- |The basic unit of work that Lighthouse knows about is a Workload.
+class IndexedTree t where
+  insert :: (v -> Int64 -> Bool) -> v -> t
+  remove :: (v -> Int64 -> Bool) -> v -> t
+  lookup :: (v -> Int64 -> Bool) -> t
+  glue :: v -> t -> t
+  unglue :: () -> (t, v, t)
+  split :: (v -> Int64 -> Bool) -> (t, t)
+  size :: () -> Int64
+  minElement :: () -> Maybe v
+  maxElement :: () -> Maybe v
+
+data WeightBalancedPennantNode =
+    Leaf
+  | TreeNode v Int64 WeightBlanacedPennantNode WeightBalancedPennantNode
+  deriving (Show, Eq)
+
+data WeightBalancedPennantTree v =
+    Empty
+  | MinPennant v Int64 WeightBalancedPennantNode
+  | MaxPennant v Int64 WeightBalancedPennantNode
+  deriving (Show, Eq)
+
+-- Now instance out IndexedTree with WBPNode
+-- After that, instance IndexedTree and JoinableTree with WBPTree
+
+
+-- |The basic unit of work that Halyard knows about is a Workload.
 -- Workloads have an ID, a list of requirements and quantity associated
 -- with each requirement, a list of tolerations and a list of aversion groups.
 -- The purpose for each of these is covered more in depth in the documentation
@@ -86,7 +71,7 @@ makeSimpleWorkload id reqs =
     (Set.empty :: Set.Set r)
     (Set.empty :: Set.Set g)
 
--- |The basic unit of worker that Lighthouse knows about is a Node.
+-- |The basic unit of worker that Halyard knows about is a Node.
 -- Nodes have an ID, a list of resources and a quantity associated with each
 -- resource. It also keeps track of which workloads have been previously
 -- assigned to it.
